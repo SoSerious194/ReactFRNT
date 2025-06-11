@@ -1,7 +1,18 @@
 'use client';
 
-import ProgramLibrary from '../../components/ProgramLibrary';
+import React from "react";
+import { useRouter } from "next/navigation";
+import { HeaderSection } from "@/components/HeaderSection";
+import { ProgramsSection } from "@/components/ProgramsSection";
 
 export default function ProgramLibraryPage() {
-  return <ProgramLibrary />;
+  const router = useRouter();
+
+  return (
+    <main className="flex flex-col w-full bg-gray-50">
+      <HeaderSection />
+
+      <ProgramsSection />
+    </main>
+  );
 }

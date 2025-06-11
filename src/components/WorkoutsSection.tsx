@@ -79,7 +79,7 @@ export const WorkoutsSection = () => {
           <div className="relative">
             <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              className="pl-10 h-[50px] border-gray-300"
+              className="pl-10 h-[50px] border-gray-300 bg-white"
               placeholder="Search workouts"
             />
           </div>
@@ -139,7 +139,7 @@ export const WorkoutsSection = () => {
           </TableHeader>
           <TableBody>
             {workouts.map((workout, index) => (
-              <TableRow key={index} className="border-t border-gray-200">
+              <TableRow key={index} className="border-t border-gray-200 bg-white">
                 <TableCell className="py-[18px] pl-6 font-medium text-gray-900">
                   {workout.name}
                 </TableCell>

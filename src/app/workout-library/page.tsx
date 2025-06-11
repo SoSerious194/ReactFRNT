@@ -3,7 +3,7 @@ import React from "react";
 import { HeaderSection } from "@/components/HeaderSection";
 import { WorkoutsSection } from "@/components/WorkoutsSection";
 
-export const WorkoutLibrary = () => {
+export default function WorkoutLibraryPage() {
   return (
     <main className="flex flex-col w-full bg-white" data-model-id="50:6">
       <div className="w-full bg-gray-50">
@@ -12,4 +12,5 @@ export const WorkoutLibrary = () => {
       </div>
     </main>
   );
-};
+}
+

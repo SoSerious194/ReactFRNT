@@ -7,6 +7,7 @@ import {
   TrashIcon,
 } from "lucide-react";
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -24,6 +25,7 @@ import {
 } from "./ui/toggle-group";
 
 export const ProgramsSection: React.FC = () => {
+  const router = useRouter();
   // Program data for mapping
   const programs = [
     {
@@ -77,7 +79,10 @@ export const ProgramsSection: React.FC = () => {
         {/* Header with title and add button */}
         <div className="flex justify-between items-center">
           <h1 className="font-bold text-3xl text-gray-900">Programs</h1>
-          <Button className="bg-green-500 hover:bg-green-600">
+          <Button
+            className="bg-green-500 hover:bg-green-600"
+            onClick={() => router.push("/program-builder")}
+          >
             <PlusIcon className="h-3.5 w-3.5 mr-2" />
             Add New Program
           </Button>
@@ -87,7 +92,7 @@ export const ProgramsSection: React.FC = () => {
         <div className="w-full max-w-[448px]">
           <div className="relative">
             <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input className="pl-10 h-[50px]" placeholder="Search programs" />
+            <Input className="pl-10 h-[50px] bg-white" placeholder="Search programs" />
           </div>
         </div>
 
@@ -102,7 +107,10 @@ export const ProgramsSection: React.FC = () => {
               <ToggleGroupItem
                 key={option.value}
                 value={option.value}
-                className={`rounded-md h-9 px-4 ${option.value === "all" ? "bg-white shadow-[0px_1px_2px_#0000000d] text-green-700" : "text-gray-600"}`}
+                className={
+                  `rounded-md h-9 px-4 ${option.value === 'all' ? '' : 'text-gray-600'} ` +
+                  'data-[state=on]:bg-white data-[state=on]:shadow-sm data-[state=on]:text-green-700'
+                }
               >
                 {option.label}
               </ToggleGroupItem>
@@ -124,7 +132,7 @@ export const ProgramsSection: React.FC = () => {
             </TableHeader>
             <TableBody>
               {programs.map((program) => (
-                <TableRow key={program.id}>
+                <TableRow key={program.id} className="bg-white">
                   <TableCell className="py-6">
                     <div className="flex items-center">
                       {program.image ? (
@@ -156,31 +164,45 @@ export const ProgramsSection: React.FC = () => {
                     {program.lastModified}
                   </TableCell>
                   <TableCell>
-                    <div className="flex space-x-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-green-600 p-0 h-auto"
-                      >
-                        <PencilIcon className="h-3.5 w-3.5 mr-1.5" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-green-600 p-0 h-auto"
-                      >
-                        <CopyIcon className="h-3.5 w-3.5 mr-1.5" />
-                        Duplicate
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 p-0 h-auto"
-                      >
-                        <TrashIcon className="h-3.5 w-3 mr-1.5" />
-                        Remove
-                      </Button>
+                    <div className="flex space-x-2">
+                      {/* First column: Edit (top), Duplicate (bottom) */}
+                      <div className="flex flex-col space-y-1 items-start">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-green-600 p-0 h-auto flex items-center"
+                        >
+                          <PencilIcon className="h-3.5 w-3.5 mr-1.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-green-600 p-0 h-auto flex items-center"
+                        >
+                          <CopyIcon className="h-3.5 w-3.5 mr-1.5" />
+                          Duplicate
+                        </Button>
+                      </div>
+                      {/* Second column: Assign (top), Remove (bottom) */}
+                      <div className="flex flex-col space-y-1 items-start">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-blue-600 p-0 h-auto flex items-center"
+                        >
+                          <span className="mr-1.5">→</span>
+                          Assign
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 p-0 h-auto flex items-center"
+                        >
+                          <TrashIcon className="h-3.5 w-3 mr-1.5" />
+                          Remove
+                        </Button>
+                      </div>
                     </div>
                   </TableCell>
                 </TableRow>
