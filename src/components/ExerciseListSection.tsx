@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
 
 // Exercise data for mapping
 const exercises = [
@@ -83,6 +84,7 @@ const typeFilters = [
 ];
 
 export const ExerciseListSection: React.FC = () => {
+  const router = useRouter();
   const [activeBodyFilter, setActiveBodyFilter] = useState("all");
   const [activeTypeFilter, setActiveTypeFilter] = useState("all");
 
@@ -95,13 +97,16 @@ export const ExerciseListSection: React.FC = () => {
             Exercises
           </h1>
 
-          <Button className="bg-green-500 hover:bg-green-600 text-white">
+          <Button
+            className="bg-green-500 hover:bg-green-600 text-white"
+            onClick={() => router.push("/training-hub/exercise-builder")}
+          >
             <PlusIcon className="h-4 w-4 mr-2" />
             Add New Exercise
           </Button>
         </div>
 
-        {/* SearchIcon bar */}
+        {/* Search bar */}
         <div className="w-full max-w-[448px]">
           <div className="relative">
             <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -114,7 +119,6 @@ export const ExerciseListSection: React.FC = () => {
 
         {/* Filter tabs */}
         <div className="flex justify-between">
-          {/* Body area filters */}
           <div className="bg-gray-100 rounded-lg flex">
             {bodyFilters.map((filter) => (
               <button
@@ -132,7 +136,6 @@ export const ExerciseListSection: React.FC = () => {
             ))}
           </div>
 
-          {/* Exercise type filters */}
           <div className="bg-gray-100 rounded-lg flex">
             {typeFilters.map((filter) => (
               <button
@@ -151,7 +154,7 @@ export const ExerciseListSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Exercise cards grid */}
+        {/* Exercise cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {exercises.map((exercise) => (
             <Card
@@ -188,3 +191,4 @@ export const ExerciseListSection: React.FC = () => {
     </section>
   );
 };
+

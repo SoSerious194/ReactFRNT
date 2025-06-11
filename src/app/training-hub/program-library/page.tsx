@@ -9,10 +9,6 @@ export default function ProgramLibraryPage() {
   const router = useRouter();
 
   return (
-    <main className="flex flex-col w-full bg-gray-50">
-      <HeaderSection />
-
       <ProgramsSection />
-    </main>
   );
 }

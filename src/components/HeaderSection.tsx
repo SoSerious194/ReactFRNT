@@ -10,8 +10,7 @@ const pathToMainKey: Record<string, string> = {
   'workout-library': 'training-hub',
   'exercise-library': 'training-hub',
   'video-on-demand': 'training-hub',
-  'clients': 'clients-and-groups',
-  'groups': 'clients-and-groups',
+  'clients-groups': 'clients-groups',
   // add more mappings as needed
 };
 
@@ -83,19 +82,28 @@ export const HeaderSection: React.FC = () => {
         <div className="w-full h-[59px] bg-green-50 border-t border-green-200">
           <div className="mx-6 h-[34px] my-[13px]">
             <nav className="flex space-x-8">
-              {currentNav.subnav.map((item) => (
-                <a
-                  key={item.href}
-                  href={`/training-hub${item.href}`}
-                  className={`font-medium text-base ${
-                    `/training-hub${item.href}` === pathname
-                      ? 'text-green-700 border-b-2 border-green-500 pb-2'
-                      : 'text-gray-600'
-                  }`}
-                >
-                  {item.label}
-                </a>
-              ))}
+              {currentNav.subnav.map((item) => {
+                const href = mainKey === 'training-hub' 
+                  ? `/training-hub${item.href}`
+                  : item.href;
+                const isActive = mainKey === 'training-hub'
+                  ? `/training-hub${item.href}` === pathname
+                  : item.href === pathname;
+
+                return (
+                  <a
+                    key={item.href}
+                    href={href}
+                    className={`font-medium text-base ${
+                      isActive
+                        ? 'text-green-700 border-b-2 border-green-500 pb-2'
+                        : 'text-gray-600'
+                    }`}
+                  >
+                    {item.label}
+                  </a>
+                );
+              })}
             </nav>
           </div>
         </div>

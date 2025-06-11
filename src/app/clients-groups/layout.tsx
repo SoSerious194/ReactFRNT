@@ -1,6 +1,6 @@
 import { HeaderSection } from "@/components/HeaderSection";
 
-export default function TrainingHubLayout({
+export default function ClientsGroupsLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -13,4 +13,3 @@ export default function TrainingHubLayout({
   );
 }
 
-  

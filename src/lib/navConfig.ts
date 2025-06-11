@@ -6,8 +6,8 @@ export const navConfig = {
     "clients-groups": {
       label: "Clients + Groups",
       subnav: [
-        { label: "Clients", href: "/clients" },
-        { label: "Groups", href: "/groups" },
+        { label: "Clients", href: "/clients-groups/clients" },
+        { label: "Groups", href: "/clients-groups/groups" },
       ],
     },
     "training-hub": {

@@ -1,16 +1,17 @@
+'use client';
 import { ArrowLeftIcon, Search, SparklesIcon } from "lucide-react";
 import React from "react";
-import { Button } from "../../../../components/ui/button";
-import { Card, CardContent } from "../../../../components/ui/card";
-import { Input } from "../../../../components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectTrigger,
   SelectValue,
-} from "../../../../components/ui/select";
-import { Textarea } from "../../../../components/ui/textarea";
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
-export const ExerciseFormSection = (): JSX.Element => {
+export const ExerciseFormSection = () => {
   // Form field data
   const formFields = {
     leftColumn: [
@@ -54,7 +55,7 @@ export const ExerciseFormSection = (): JSX.Element => {
   };
 
   return (
-    <div className="w-full p-6">
+    <div className="w-full p-6 bg-gray-50 min-h-screen">
       <Card className="w-full rounded-lg border shadow-sm">
         <div className="relative">
           {/* Header */}
@@ -62,11 +63,12 @@ export const ExerciseFormSection = (): JSX.Element => {
             <Button
               variant="ghost"
               className="ml-6 flex items-center gap-2 text-gray-600"
+              onClick={() => window.location.href = '/training-hub/exercise-library'}
             >
               <ArrowLeftIcon size={15} />
               <span className="font-medium text-[17px]">Back</span>
             </Button>
-            <h1 className="ml-8 font-normal text-gray-900 text-[21px]">
+            <h1 className="ml-8 font-bold text-gray-900 text-3xl">
               Exercise Builder
             </h1>
           </div>
@@ -182,12 +184,12 @@ export const ExerciseFormSection = (): JSX.Element => {
                 <div className="flex gap-4 pt-4">
                   <Button
                     variant="outline"
-                    className="h-[74px] w-[160px] flex flex-col py-2.5 text-gray-700"
+                    className="h-[74px] w-[160px] flex flex-col py-2.5 text-gray-700 font-bold"
                   >
                     <span>Save as</span>
                     <span>Draft</span>
                   </Button>
-                  <Button className="h-[72px] w-[163px] flex flex-col py-2.5 bg-green-500 hover:bg-green-600">
+                  <Button className="h-[72px] w-[163px] flex flex-col py-2.5 bg-green-500 hover:bg-green-600 font-bold">
                     <span>Save</span>
                     <span>Exercise</span>
                   </Button>
