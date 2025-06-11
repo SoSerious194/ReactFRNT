@@ -81,7 +81,7 @@ export const ProgramsSection: React.FC = () => {
           <h1 className="font-bold text-3xl text-gray-900">Programs</h1>
           <Button
             className="bg-green-500 hover:bg-green-600"
-            onClick={() => router.push("/program-builder")}
+            onClick={() => router.push("/training-hub/program-builder")}
           >
             <PlusIcon className="h-3.5 w-3.5 mr-2" />
             Add New Program

@@ -7,7 +7,7 @@ export default function TrainingHubPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/program-library');
+    router.replace('/training-hub/program-library');
   }, [router]);
 
   return null; // optional: you could show a loading spinner here if you want

@@ -52,8 +52,8 @@ export const HeaderSection: React.FC = () => {
                 <a
                   key={key}
                   href={`/${key}`}
-                  className={`font-medium text-base ${
-                    key === mainKey ? 'text-green-600' : 'text-gray-600'
+                  className={`font-semibold text-lg ${
+                    key === mainKey ? 'text-green-600' : 'text-black'
                   }`}
                 >
                   {item.label}
@@ -86,9 +86,9 @@ export const HeaderSection: React.FC = () => {
               {currentNav.subnav.map((item) => (
                 <a
                   key={item.href}
-                  href={item.href}
+                  href={`/training-hub${item.href}`}
                   className={`font-medium text-base ${
-                    item.href === subKey
+                    `/training-hub${item.href}` === pathname
                       ? 'text-green-700 border-b-2 border-green-500 pb-2'
                       : 'text-gray-600'
                   }`}

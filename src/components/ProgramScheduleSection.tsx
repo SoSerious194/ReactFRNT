@@ -7,6 +7,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
+import { useRouter } from "next/navigation";
 
 // Data for the days and their workouts
 const days = [
@@ -72,15 +73,31 @@ const quickAddOptions = [
   },
 ];
 
-export const ProgramScheduleSection: React.FC = () => {
+export const ProgramScheduleSection = ({
+  mode,
+  program
+}: {
+  mode: "create" | "edit";
+  program?: any; // Type properly when ready
+}) => {
+  const router = useRouter();
+
   return (
     <section className="w-full p-6">
+      <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        {mode === "edit" ? `Editing: ${program?.name}` : "New Program"}
+      </h2>
       <Card className="w-full rounded-lg border shadow-[0px_1px_2px_#0000000d]">
         {/* Header */}
         <div className="border-b p-6">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" className="p-0 h-6 gap-2" size="sm">
+              <Button
+                variant="ghost"
+                className="p-0 h-6 gap-2"
+                size="sm"
+                onClick={() => router.push("/training-hub/program-library")}
+              >
                 <ArrowLeftIcon className="h-3.5 w-3.5" />
                 <span className="font-medium text-gray-600">Back</span>
               </Button>

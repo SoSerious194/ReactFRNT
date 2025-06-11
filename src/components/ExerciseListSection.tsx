@@ -1,5 +1,5 @@
 'use client';
-import { EditIcon, PlusCircleIcon, SearchIcon, Trash2Icon } from "lucide-react";
+import { EditIcon, PlusIcon, SearchIcon, Trash2Icon } from "lucide-react";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -96,7 +96,7 @@ export const ExerciseListSection: React.FC = () => {
           </h1>
 
           <Button className="bg-green-500 hover:bg-green-600 text-white">
-            <PlusCircleIcon className="h-4 w-4 mr-2" />
+            <PlusIcon className="h-4 w-4 mr-2" />
             Add New Exercise
           </Button>
         </div>
