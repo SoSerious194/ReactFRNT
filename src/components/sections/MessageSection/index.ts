@@ -1,1 +1,1 @@
-export { MessageSection } from "./MessageSection";
+export { default as MessageSection } from "./MessageSection";

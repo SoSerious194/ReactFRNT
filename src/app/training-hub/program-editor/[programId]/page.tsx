@@ -57,7 +57,7 @@ export default function ProgramEditorPage() {
   return (
     <div className="flex flex-col w-full">
       <HeaderSection />
-      <ProgramScheduleSection />
+      <ProgramScheduleSection mode="edit" program={programData} />
     </div>
   );
 }

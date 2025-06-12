@@ -1,1 +1,1 @@
-export { ChatSection } from "./ChatSection";
+export { default as ChatSection } from "./ChatSection";

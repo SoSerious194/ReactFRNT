@@ -1,1 +1,1 @@
-export { MemberListSection } from "./MemberListSection";
+export { default as MemberListSection } from "./MemberListSection";
