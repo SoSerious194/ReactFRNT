@@ -30,8 +30,8 @@ export const HeaderSection: React.FC = () => {
   return (
     <header className="w-full border-b border-solid">
       {/* Top nav */}
-      <div className="w-full h-[76px]">
-        <div className="flex justify-between items-center h-11 mx-6 my-4">
+      <div className="w-full h-[76px] bg-white">
+        <div className="flex justify-between items-center h-full mx-6">
           <div className="flex items-center">
             {/* Logo */}
             <div className="flex items-center mr-8">

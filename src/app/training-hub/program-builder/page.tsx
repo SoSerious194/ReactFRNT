@@ -1,6 +1,5 @@
 'use client';
 import React from "react";
-import { HeaderSection } from "@/components/HeaderSection";
 import { ProgramScheduleSection } from "@/components/ProgramScheduleSection";
 
 export default function ProgramBuilderPage() {

@@ -57,8 +57,8 @@ export const VideoContentSection: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState("workouts");
 
   return (
-    <section className="w-full max-w-[1280px] mx-auto py-8 px-4">
-      <div className="space-y-8">
+    <section className="w-full flex justify-center py-8 px-4">
+      <div className="bg-white rounded-xl shadow p-6 w-full max-w-7xl space-y-8">
         {/* Header with title and add button */}
         <div className="flex justify-between items-center">
           <h1 className="font-bold text-3xl text-gray-900 font-sans">

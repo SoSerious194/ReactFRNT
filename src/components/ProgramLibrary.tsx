@@ -7,7 +7,7 @@ const ProgramLibrary: React.FC = () => {
     <main className="flex flex-col w-full bg-background" data-model-id="39:4">
       <div className="w-full bg-gray-50">
         <HeaderSection />
-        <ProgramsSection />
+        <ProgramsSection programs={[]} />
       </div>
     </main>
   );

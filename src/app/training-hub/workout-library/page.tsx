@@ -1,11 +1,31 @@
-'use client';
-import React from "react";
-import { HeaderSection } from "@/components/HeaderSection";
-import { WorkoutsSection } from "@/components/WorkoutsSection";
+export const dynamic = 'force-dynamic';
 
-export default function WorkoutLibraryPage() {
-  return (
-        <WorkoutsSection />
-  );
+import { createClient } from '@/utils/supabase/server';
+import { WorkoutsSection } from '@/components/WorkoutsSection';
+
+export default async function WorkoutLibraryPage() {
+  const supabase = await createClient();
+
+  const { data: workouts, error } = await supabase
+    .from('workouts')
+    .select('id, name, difficulty, equipment, duration, lastModified')
+    .order('lastModified', { ascending: false });
+
+  if (error) {
+    return (
+      <div className="p-6 text-red-500">
+        Error loading workouts: {error.message}
+      </div>
+    );
+  }
+
+  if (!workouts || workouts.length === 0) {
+    return (
+      <div className="p-6 text-gray-500">
+        No workouts available yet.
+      </div>
+    );
+  }
+
+  return <WorkoutsSection workouts={workouts} />;
 }
-

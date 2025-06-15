@@ -31,8 +31,8 @@ export const ExerciseFormSection = () => {
     ],
     middleColumn: [
       { id: "musclesTrained", label: "Muscles Trained", type: "select" },
-      { id: "defaultUnit", label: "Default Unit", type: "select" },
       { id: "exerciseType", label: "Exercise Type", type: "select" },
+      { id: "defaultUnit", label: "Default Unit(s)", type: "select" },
       { id: "targetGoal", label: "Target Goal", type: "select" },
       { id: "difficulty", label: "Difficulty", type: "select" },
       { id: "equipment", label: "Equipment", type: "select" },
