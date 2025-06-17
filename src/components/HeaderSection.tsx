@@ -42,7 +42,7 @@ export const HeaderSection: React.FC = () => {
                   src="https://c.animaapp.com/mbqrzacsv2XpmH/img/frame-11.svg"
                 />
               </div>
-              <span className="ml-3 font-bold text-xl text-gray-900">FitPro</span>
+              <span className="ml-3 font-bold text-xl text-gray-900">PTFlow</span>
             </div>
 
             {/* Main nav links */}

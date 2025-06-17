@@ -2,52 +2,66 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { createClient } from "@/utils/supabase/client";
 import { HeaderSection } from "@/components/HeaderSection";
 import { ProgramScheduleSection } from "@/components/ProgramScheduleSection";
-
-// import { supabase } from "@/lib/supabaseClient"; // Uncomment when ready
 
 export default function ProgramEditorPage() {
   const { programId } = useParams();
   const [programData, setProgramData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Placeholder useEffect — real data fetching coming soon
   useEffect(() => {
-    if (programId) {
-      // 👇 Uncomment and replace when Supabase is ready
-      /*
-      const fetchProgram = async () => {
-        const { data, error } = await supabase
-          .from("programs")
-          .select("*")
-          .eq("id", programId)
-          .single();
+    const fetchProgramData = async () => {
+      const supabase = createClient();
 
-        if (error) {
-          console.error("Error fetching program:", error);
-        } else {
-          setProgramData(data);
+      // 1. Fetch program info
+      const { data: program, error: programError } = await supabase
+        .from("programs")
+        .select("*")
+        .eq("id", programId)
+        .single();
+
+      if (programError || !program) {
+        console.error("Error fetching program:", programError);
+        return;
+      }
+
+      // 2. Fetch program_days
+      const { data: days, error: daysError } = await supabase
+        .from("program_days")
+        .select("day, workout_id, is_rest_day, notes, workouts (id, name, duration, difficulty)")
+
+        .eq("program_id", programId);
+
+      if (daysError) {
+        console.error("Error fetching days:", daysError);
+        return;
+      }
+
+      // 3. Convert day data into format builder wants
+      const dayWorkouts: { [key: number]: any[] } = {};
+      days.forEach(day => {
+        if (!dayWorkouts[day.day]) {
+          dayWorkouts[day.day] = [];
         }
+        if (day.workouts) {
+          dayWorkouts[day.day].push(day.workouts);
+        }
+        
+      });
 
-        setLoading(false);
-      };
+      setProgramData({
+        id: program.id,
+        name: program.name,
+        scheduleLength: program.schedule_length ?? 7, // fallback
+        dayWorkouts,
+      });
 
-      fetchProgram();
-      */
-      
-      // TEMPORARY: Simulate loading
-      const timeout = setTimeout(() => {
-        setProgramData({
-          id: programId,
-          name: "Placeholder Program",
-          days: [], // Replace with actual structure later
-        });
-        setLoading(false);
-      }, 500);
+      setLoading(false);
+    };
 
-      return () => clearTimeout(timeout);
-    }
+    if (programId) fetchProgramData();
   }, [programId]);
 
   if (loading) {
@@ -56,7 +70,6 @@ export default function ProgramEditorPage() {
 
   return (
     <div className="flex flex-col w-full">
-      <HeaderSection />
       <ProgramScheduleSection mode="edit" program={programData} />
     </div>
   );

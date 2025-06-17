@@ -5,43 +5,37 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function MemberListSection() {
-  // Group data for mapping
-  const groups = [
+  // Client data for mapping
+  const clients = [
     {
       id: 1,
-      name: "Strength Training",
-      members: 24,
-      lastMessageTime: "2h ago",
-      color: "bg-green-500",
+      name: "Jane Doe",
+      avatar: "https://randomuser.me/api/portraits/women/44.jpg",
       isActive: true,
-      icon: "https://c.animaapp.com/mbtb1be13lPm2M/img/frame-2.svg",
     },
     {
       id: 2,
-      name: "Cardio Warriors",
-      members: 18,
-      lastMessageTime: "1d ago",
-      color: "bg-purple-500",
+      name: "John Smith",
+      avatar: "https://randomuser.me/api/portraits/men/32.jpg",
       isActive: false,
-      icon: "https://c.animaapp.com/mbtb1be13lPm2M/img/frame-3.svg",
     },
     {
       id: 3,
-      name: "Nutrition Support",
-      members: 32,
-      lastMessageTime: "3h ago",
-      color: "bg-orange-500",
+      name: "Emily Johnson",
+      avatar: "https://randomuser.me/api/portraits/women/68.jpg",
       isActive: false,
-      icon: "https://c.animaapp.com/mbtb1be13lPm2M/img/frame-5.svg",
     },
     {
       id: 4,
-      name: "Marathon Prep",
-      members: 12,
-      lastMessageTime: "5h ago",
-      color: "bg-blue-500",
+      name: "Michael Brown",
+      avatar: "https://randomuser.me/api/portraits/men/65.jpg",
       isActive: false,
-      icon: "https://c.animaapp.com/mbtb1be13lPm2M/img/frame-1.svg",
+    },
+    {
+      id: 5,
+      name: "Olivia Lee",
+      avatar: "https://randomuser.me/api/portraits/women/12.jpg",
+      isActive: false,
     },
   ];
 
@@ -53,7 +47,7 @@ export default function MemberListSection() {
           {/* Title and Add Button */}
           <div className="flex justify-between items-center mb-5">
             <h2 className="font-bold text-xl text-gray-900 font-sans">
-              Groups
+              Clients
             </h2>
             <Button size="sm" className="w-7 h-10 p-0 bg-green-500">
               <PlusIcon className="h-3 w-3 text-white" />
@@ -65,47 +59,34 @@ export default function MemberListSection() {
             <SearchIcon className="absolute left-3 top-[11px] h-4 w-4 text-gray-400" />
             <Input
               className="pl-10 h-[38px] text-sm border-gray-300"
-              placeholder="SearchIcon groups"
+              placeholder="Search Clients"
             />
           </div>
         </div>
       </header>
 
-      {/* Groups List */}
+      {/* Clients List */}
       <div className="w-full">
-        {groups.map((group) => (
+        {clients.map((client) => (
           <div
-            key={group.id}
-            className={`w-full h-[92px] ${group.isActive ? "bg-green-50 border-r-4 border-r-green-500" : ""}`}
+            key={client.id}
+            className={`w-full h-[72px] ${client.isActive ? "bg-green-50 border-r-4 border-r-green-500" : ""}`}
           >
             <div className="flex p-4 items-center">
-              {/* Group Icon */}
-              <div
-                className={`w-12 h-12 rounded-full ${group.color} flex items-center justify-center mr-4`}
-              >
-                <img
-                  className="w-4 h-4"
-                  alt={`${group.name} icon`}
-                  src={group.icon}
-                />
-              </div>
-
-              {/* Group Info */}
-              <div className="flex flex-col">
-                <span className="font-normal text-base text-gray-900 leading-6">
-                  {group.name}
-                </span>
-                <span className="font-normal text-sm text-gray-500 leading-5">
-                  {group.members} members
-                </span>
-                <span className="font-normal text-xs text-gray-400 leading-4">
-                  Last message {group.lastMessageTime}
-                </span>
-              </div>
+              {/* Client Avatar */}
+              <img
+                className="w-12 h-12 rounded-full object-cover mr-4"
+                alt={client.name}
+                src={client.avatar}
+              />
+              {/* Client Name */}
+              <span className="font-normal text-base text-gray-900 leading-6">
+                {client.name}
+              </span>
             </div>
           </div>
         ))}
       </div>
     </aside>
   );
-};
+}

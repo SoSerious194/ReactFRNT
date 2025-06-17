@@ -52,9 +52,9 @@ const messages = [
 
 export default function MessageSection() {
   return (
-    <div className="flex flex-col h-full w-full border-l">
+    <div className="flex flex-col h-full w-full border-l bg-white">
       {/* Header */}
-      <header className="flex items-center justify-between p-6 bg-white border-b h-[97px]">
+      <header className="flex items-center justify-between p-6 bg-white border-b" style={{ minHeight: 97 }}>
         <div className="flex items-center">
           <div className="flex items-center justify-center w-12 h-12 bg-green-500 rounded-full">
             <img
@@ -152,7 +152,7 @@ export default function MessageSection() {
       </div>
 
       {/* Message Input */}
-      <footer className="p-6 bg-white border-t h-[99px]">
+      <footer className="p-6 bg-white border-t pb-24">
         <div className="flex items-center">
           <Button variant="ghost" size="icon" className="h-10 w-[30px] mr-4">
             <PaperclipIcon className="h-4 w-3.5" />
