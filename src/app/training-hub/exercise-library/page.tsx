@@ -8,7 +8,7 @@ export default async function ExerciseLibraryPage() {
   const supabase = await createClient();
 
   const { data: exercises, error } = await supabase
-    .from('exercises')
+    .from('exercise_library')
     .select('id, name, muscles_trained, video_url_1')
     .order('created_at', { ascending: false });
 

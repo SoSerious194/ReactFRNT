@@ -23,7 +23,7 @@ const musclesTrainedOptions = [
   "Full Body", "Cardiovascular", "Mobility"
 ];
 const exerciseTypeOptions = [
-  "Strength", "Mobility", "Warm-Up", "Cool-Down",
+  "Strength/", "Mobility", "Warm-Up", "Cool-Down",
   "Plyometric", "Isometric", "Stretching", "Cardio",
   "Rehab", "Balance"
 ];
@@ -80,7 +80,7 @@ export const ExerciseFormSection = () => {
       is_global: false,
       // ... add other fields as needed
     };
-    const { error } = await supabase.from('exercises').insert([exercise]);
+    const { error } = await supabase.from('exercise_library').insert([exercise]);
     if (!error) {
       alert(asDraft ? 'Saved as draft!' : 'Exercise saved!');
     } else {

@@ -53,7 +53,7 @@ export const ExerciseListSection: React.FC = () => {
     const fetchExercises = async () => {
       setLoading(true);
       const supabase = createClient();
-      let query = supabase.from('exercises').select('*');
+      let query = supabase.from('exercise_library').select('*');
       if (exerciseTab === 'all') {
         query = query
           .eq('is_active', true)
