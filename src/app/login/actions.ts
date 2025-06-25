@@ -35,6 +35,7 @@ export async function signup(formData: FormData) {
     email: formData.get('email') as string,
     password: formData.get('password') as string,
     role: formData.get('user_role') as UserRoleType,
+    full_name: formData.get('full_name') as string,
   }
 
   const { error } = await supabase.auth.signUp({
@@ -43,6 +44,7 @@ export async function signup(formData: FormData) {
     options: {
       data: {
         role: data.role,
+        full_name: data.full_name,
       },
     },
   })
@@ -58,5 +60,12 @@ export async function signup(formData: FormData) {
 export async function logout() {
   const supabase = await createClient()
   await supabase.auth.signOut()
-  redirect('/')
+  redirect('/login')
+}
+
+
+export async function getUser() {
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.getUser()
+  return data
 }

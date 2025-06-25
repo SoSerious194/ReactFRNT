@@ -20,6 +20,5 @@ export const getUserRole = async () => {
   if (!session) return null;
 
   const jwt: CustomJwtType = jwtDecode(session.access_token);
-  console.log("🚀 ~ getUserRole ~ jwt:", jwt)
   return jwt.user_role ?? null;
 };
