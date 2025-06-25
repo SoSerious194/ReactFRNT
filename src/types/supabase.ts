@@ -146,6 +146,45 @@ export type Database = {
           },
         ]
       }
+      direct_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+          user_one_id: string
+          user_two_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_one_id: string
+          user_two_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_one_id?: string
+          user_two_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_conversations_user_one_id_fkey"
+            columns: ["user_one_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_conversations_user_two_id_fkey"
+            columns: ["user_two_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercise_library: {
         Row: {
           coach_id: string | null
@@ -333,6 +372,54 @@ export type Database = {
             columns: ["workout_block_id"]
             isOneToOne: false
             referencedRelation: "workout_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          file_name: string | null
+          file_path: string | null
+          id: string
+          message_type: Database["public"]["Enums"]["message_type"]
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          message_type?: Database["public"]["Enums"]["message_type"]
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          message_type?: Database["public"]["Enums"]["message_type"]
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "direct_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -686,6 +773,10 @@ export type Database = {
         Args: { exercise_name: string }
         Returns: string
       }
+      get_or_create_conversation: {
+        Args: { user_a: string; user_b: string }
+        Returns: string
+      }
       get_workout_preview: {
         Args: { workout_uuid: string }
         Returns: {
@@ -700,8 +791,19 @@ export type Database = {
           muscles_trained: string
         }[]
       }
+      send_message: {
+        Args: {
+          p_conversation_id: string
+          p_content: string
+          p_message_type?: Database["public"]["Enums"]["message_type"]
+          p_file_url?: string
+          p_file_name?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
+      message_type: "text" | "image" | "file" | "voice"
       role_type: "Client" | "Coach"
     }
     CompositeTypes: {
@@ -818,6 +920,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      message_type: ["text", "image", "file", "voice"],
       role_type: ["Client", "Coach"],
     },
   },
