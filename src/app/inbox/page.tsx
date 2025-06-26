@@ -1,11 +1,21 @@
-import MemberListSection from "@/components/sections/MemberListSection/MemberListSection";
-import MessageSection from "@/components/sections/MessageSection/MessageSection";
 import ChatSection from "@/components/sections/ChatSection/ChatSection";
-import { getClients } from "./action";
-import ClientListingSection from "@/components/sections/ClientListingSection/ClientListingSection";
+import { getClients, getConversationId, getUserId } from "./action";
+import ClientListingSection from "@/components/sections/inbox/ClientListingSection/ClientListingSection";
+import MessageSection from "@/components/sections/inbox/MessageSection/MessageSection";
+import { SearchParamsType } from "@/types";
 
-export default async function InboxPage() {
-  const { data, success, message } = await getClients();
+export default async function InboxPage({searchParams}: SearchParamsType) {
+
+  const { client: clientId } = await searchParams;
+
+  const { data } = await getClients();
+  const conversationId = await getConversationId(clientId as string);
+  const userId = await getUserId();
+
+  const client = data.find((client) => {
+    return client.id === clientId
+  })
+
 
   return (
     <div className="flex h-screen">
@@ -13,7 +23,7 @@ export default async function InboxPage() {
         <ClientListingSection clients={data} />
       </aside>
       <section className="flex-1 flex flex-col h-full">
-        <MessageSection />
+        {client && conversationId && userId && <MessageSection key={conversationId} client={client} conversationId={conversationId } userId={userId} />}
       </section>
       <aside className="w-[22%] flex-shrink-0">
         <ChatSection />
