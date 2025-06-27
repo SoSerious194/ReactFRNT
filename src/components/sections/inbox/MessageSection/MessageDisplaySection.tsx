@@ -36,6 +36,8 @@ const MessageDisplaySection = ({ message, isMe, isOptimistic }: MessageDisplaySe
           bucketName = BUCKET_NAMES.CONVERSATION_IMAGES
         }else if(message.message_type === "file"){
           bucketName = BUCKET_NAMES.CONVERSATION_FILES
+        }else if(message.message_type === "video"){
+          bucketName = BUCKET_NAMES.CONVERSATION_VIDEO
         }else{
           bucketName = BUCKET_NAMES.CONVERSATION_FILES
         }

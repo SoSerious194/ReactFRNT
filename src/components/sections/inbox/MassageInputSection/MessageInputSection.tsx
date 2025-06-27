@@ -5,6 +5,7 @@ import { Dispatch, RefObject, SetStateAction, useCallback, useState } from "reac
 import { sendMessage } from "@/app/inbox/action";
 import { MessageContentType } from "../MessageSection/MessageSection";
 import { VoiceMessageInput } from "./MessageVoiceSend";
+import MessageFileUploadSection from "./MessageFileUploadSection";
 
 interface MessageInputSectionProps {
   isLoadingAny: boolean;
@@ -18,6 +19,7 @@ interface MessageInputSectionProps {
 export function MessageInputSection({ isLoadingAny, userId, setMessages, shouldScrollToBottom, conversationId, isNearBottom }: MessageInputSectionProps) {
   const [newMessage, setNewMessage] = useState("");
   const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [isFileUploadOpen, setIsFileUploadOpen] = useState(false);
 
   const canSendMessage = newMessage.trim().length > 0;
 
@@ -97,9 +99,11 @@ export function MessageInputSection({ isLoadingAny, userId, setMessages, shouldS
   return (
     <footer className="p-6 bg-white border-t pb-24">
       <div className="flex items-center">
-        <Button variant="ghost" size="icon" className="h-10 w-[30px] mr-4" aria-label="Attach file">
+        <Button variant="ghost" onClick={() => setIsFileUploadOpen(true)} size="icon" className="h-10 w-[30px] mr-4" aria-label="Attach file">
           <PaperclipIcon className="h-4 w-3.5" />
         </Button>
+
+        <MessageFileUploadSection open={isFileUploadOpen} onClose={() => setIsFileUploadOpen(false)} isLoadingAny={isLoadingAny} conversationId={conversationId} userId={userId} setMessages={setMessages} shouldScrollToBottom={shouldScrollToBottom} isNearBottom={isNearBottom}  />
 
         <div className="flex-1">
           <Input
