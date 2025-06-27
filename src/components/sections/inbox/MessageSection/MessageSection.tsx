@@ -1,17 +1,15 @@
 "use client";
 
-import { MoreHorizontalIcon, PaperclipIcon, PhoneIcon, SendIcon, VideoIcon, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { ClientType } from "@/types/client";
-import { sendMessage } from "@/app/inbox/action";
 import { createClient } from "@/utils/supabase/client";
-import { ScrollArea } from "@radix-ui/react-scroll-area";
+import MessageInputSection from "../MassageInputSection/MessageInputSection";
+import MessageHeaderSection from "../MessageHeaderSection/MessageHeaderSection";
+import MessageDisplaySection from "./MessageDisplaySection";
 
-interface Message {
+export interface MessageType {
   id: string;
   sender_id: string;
   content: string;
@@ -79,8 +77,7 @@ export default function MessageSection({ client, conversationId, userId }: { cli
   // Memoize supabase client to prevent recreating on every render
   const supabase = useMemo(() => createClient(), []);
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState("");
+  const [messages, setMessages] = useState<MessageType[]>([]);
 
   const { containerRef, isNearBottom, checkScrollPosition } = useScrollPosition();
   const { pagination, updatePagination, resetPagination } = useMessagePagination(conversationId);
@@ -93,15 +90,12 @@ export default function MessageSection({ client, conversationId, userId }: { cli
 
   // Memoized values
   const hasMessages = messages.length > 0;
-  const canSendMessage = newMessage.trim().length > 0;
   const isLoadingAny = pagination.isLoading || pagination.isInitialLoading;
 
   // Utility functions
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   }, []);
-
-
 
   // Fetch messages with better error handling and abort support
   const fetchMessages = useCallback(
@@ -156,7 +150,6 @@ export default function MessageSection({ client, conversationId, userId }: { cli
       } catch (error: any) {
         if (error.name === "AbortError") return;
 
-
         // Retry logic for transient errors
         if (retryAttempt < 3 && error.message?.includes("network")) {
           setTimeout(() => {
@@ -203,49 +196,6 @@ export default function MessageSection({ client, conversationId, userId }: { cli
       }, SCROLL_DEBOUNCE_MS);
     };
   }, [loadMoreMessages, pagination.isLoading, pagination.hasMore, checkScrollPosition]);
-
-  // Send message with optimistic updates
-  const handleSend = useCallback(async () => {
-    if (!canSendMessage) return;
-
-    const messageContent = newMessage.trim();
-    const optimisticMessage: Message = {
-      id: `temp-${Date.now()}`,
-      sender_id: userId,
-      content: messageContent,
-      created_at: new Date().toISOString(),
-    };
-
-    // Optimistic update
-    setMessages((prev) => [...prev, optimisticMessage]);
-    setNewMessage("");
-
-    if (isNearBottom) {
-      shouldScrollToBottom.current = true;
-    }
-
-    try {
-      const { success, message } = await sendMessage(conversationId, messageContent);
-
-      if (!success) {
-        // Revert optimistic update on failure
-        setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessage.id));
-        setNewMessage(messageContent); // Restore message
-        throw new Error(message || "Failed to send message");
-      }
-    } catch (error) {
-      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessage.id));
-      setNewMessage(messageContent);
-    }
-  }, [canSendMessage, newMessage, userId, isNearBottom, conversationId]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
 
   // Effects
   useEffect(() => {
@@ -318,7 +268,7 @@ export default function MessageSection({ client, conversationId, userId }: { cli
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          const newMessage = payload.new as Message;
+          const newMessage = payload.new as MessageType;
 
           // Avoid duplicate messages from optimistic updates
           setMessages((prev) => {
@@ -343,65 +293,10 @@ export default function MessageSection({ client, conversationId, userId }: { cli
     };
   }, [conversationId, supabase, isNearBottom]);
 
-
-
-  // Header Component
-  const MessageHeader = () => (
-    <header className="flex items-center justify-between p-6 bg-white border-b" style={{ minHeight: 97 }}>
-      <div className="flex items-center">
-        <Avatar className="w-12 h-12">
-          <img className="w-full h-full object-cover" alt="Profile" src={client?.profile_image_url || "https://c.animaapp.com/mbtb1be13lPm2M/img/frame-2.svg"} />
-        </Avatar>
-        <div className="ml-4">
-          <h2 className="font-bold text-xl text-gray-900">{client?.full_name}</h2>
-          <p className="text-sm text-gray-500">24 members • 15 online</p>
-        </div>
-      </div>
-      <div className="flex items-center space-x-3">
-        <Button variant="ghost" size="icon" className="h-10 w-8" aria-label="Voice call">
-          <PhoneIcon className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-10 w-[34px]" aria-label="Video call">
-          <VideoIcon className="h-4 w-[18px]" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-10 w-8" aria-label="More options">
-          <MoreHorizontalIcon className="h-4 w-4" />
-        </Button>
-      </div>
-    </header>
-  );
-
-  // Message Input Component
-  const MessageInput = () => (
-    <footer className="p-6 bg-white border-t pb-24">
-      <div className="flex items-center">
-        <Button variant="ghost" size="icon" className="h-10 w-[30px] mr-4" aria-label="Attach file">
-          <PaperclipIcon className="h-4 w-3.5" />
-        </Button>
-        <div className="flex-1">
-          <Input
-            type="text"
-            className="h-[50px] border-gray-300"
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoadingAny}
-          />
-        </div>
-        <Button size="icon" className="h-12 w-10 ml-4 bg-green-500 hover:bg-green-600 disabled:opacity-50" onClick={handleSend} disabled={!canSendMessage || isLoadingAny} aria-label="Send message">
-          <SendIcon className="h-4 w-4 text-white" />
-        </Button>
-      </div>
-    </footer>
-  );
-
   return (
     <div className="flex flex-col h-full w-full border-l bg-white">
-      <MessageHeader />
-
-
-      <div className="h-full overflow-y-scroll rounded-md border" ref={containerRef}>
+      <MessageHeaderSection client={client} />
+      <div className="h-full p-6 overflow-y-scroll rounded-md border" ref={containerRef}>
         {/* Loading indicator for pagination */}
         {pagination.isLoading && !pagination.isInitialLoading && (
           <div className="flex justify-center py-4">
@@ -435,7 +330,7 @@ export default function MessageSection({ client, conversationId, userId }: { cli
           const isOptimistic = message.id.startsWith("temp-");
 
           return (
-            <div key={message.id} className={`flex mb-8 ${isMe ? "justify-end" : ""} ${isOptimistic ? "opacity-70" : ""}`}>
+            <div key={message.id} className={`flex   mb-8 ${isMe ? "justify-end" : ""} ${isOptimistic ? "opacity-70" : ""}`}>
               {!isMe && (
                 <Avatar className="h-10 w-10 mr-3">
                   <img src={client?.profile_image_url || "https://c.animaapp.com/mbtb1be13lPm2M/img/img-4.png"} alt="Sender" className="h-full w-full object-cover" />
@@ -465,9 +360,8 @@ export default function MessageSection({ client, conversationId, userId }: { cli
                     </>
                   )}
                 </div>
-                <Card className={`p-3 max-w-[448px] border-0 ${isMe ? "bg-green-500 text-white" : "bg-gray-100 text-gray-900"}`}>
-                  <p className="text-base whitespace-pre-wrap">{message.content}</p>
-                </Card>
+
+                <MessageDisplaySection message={message} isMe={isMe} isOptimistic={isOptimistic} />
               </div>
               {isMe && (
                 <Avatar className="h-10 w-10 ml-3">
@@ -479,8 +373,14 @@ export default function MessageSection({ client, conversationId, userId }: { cli
         })}
         <div ref={messagesEndRef} />
       </div>
-
-      <MessageInput />
+      <MessageInputSection
+        isLoadingAny={isLoadingAny}
+        userId={userId}
+        setMessages={setMessages}
+        shouldScrollToBottom={shouldScrollToBottom}
+        conversationId={conversationId}
+        isNearBottom={isNearBottom}
+      />
     </div>
   );
 }
