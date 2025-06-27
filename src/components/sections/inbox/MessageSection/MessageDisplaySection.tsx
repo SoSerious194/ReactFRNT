@@ -18,17 +18,16 @@ const MessageDisplaySection = ({ message, isMe, isOptimistic }: MessageDisplaySe
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
+
   // Generate signed URL for files
   useEffect(() => {
     const getSignedUrl = async () => {
-      if (!message.file_path || message.message_type === "text") return;
+      if (!message.file_path || message.message_type === "text" || message.id.startsWith("temp-")) return;
 
       setLoading(true);
       setError(null);
 
       try {
-
-
         let bucketName = ""
         if(message.message_type === "voice"){
           bucketName = BUCKET_NAMES.CONVERSATION_VOICE
@@ -120,7 +119,6 @@ const MessageDisplaySection = ({ message, isMe, isOptimistic }: MessageDisplaySe
       case "video":
         return (
           <div className="space-y-2">
-            {message.content && <p className="text-base leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>}
             <div className="relative">
               {loading ? (
                 <div className="flex items-center justify-center w-full h-48 bg-gray-200 rounded-lg animate-pulse">
@@ -141,12 +139,9 @@ const MessageDisplaySection = ({ message, isMe, isOptimistic }: MessageDisplaySe
 
       case "voice":
         return (
-          <div className="space-y-2">
-            {message.content && <p className="text-base leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>}
+          <div className="space-y-2 min-w-[300px]">
             <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-              ) : error ? (
+              { error ? (
                 <div className="text-red-500 text-sm">{error}</div>
               ) : (
                 <>
@@ -159,9 +154,8 @@ const MessageDisplaySection = ({ message, isMe, isOptimistic }: MessageDisplaySe
                   </button>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-700">Voice Message</p>
-                    <p className="text-xs text-gray-500">{message.file_name}</p>
                   </div>
-                  <Mic className="w-5 h-5 text-gray-400" />
+                  
                   {fileUrl && <audio id={`audio-${message.id}`} src={fileUrl} onEnded={() => setIsPlaying(false)} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} />}
                 </>
               )}
@@ -203,6 +197,9 @@ const MessageDisplaySection = ({ message, isMe, isOptimistic }: MessageDisplaySe
     }
   };
 
+
+
+
   return (
     <Card
       className={`
@@ -215,14 +212,14 @@ const MessageDisplaySection = ({ message, isMe, isOptimistic }: MessageDisplaySe
         rounded-2xl 
         break-words 
         hyphens-auto
-        ${isMe ? "bg-green-500 text-white rounded-br-md" : "bg-gray-100 text-gray-900 rounded-bl-md"}
-        ${isOptimistic ? "opacity-70" : ""}
+        ${ isMe ? "bg-green-500 text-white rounded-br-md" : "bg-gray-100 text-gray-900 rounded-bl-md"}
+        ${isOptimistic || loading ? "opacity-70" : ""}
       `}
     >
       {renderMessageContent()}
 
       {/* Optimistic message indicator */}
-      {isOptimistic && (
+      {isOptimistic  && (
         <div className="absolute -bottom-6 right-0 text-xs text-gray-400 flex items-center space-x-1">
           <Loader2 className="w-3 h-3 animate-spin" />
           <span>Sending...</span>

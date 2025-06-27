@@ -280,10 +280,20 @@ export default function MessageSection({ client, conversationId, userId }: { cli
             if (exists) return prev;
 
             // Remove any temporary messages with same content
-            const filtered = prev.filter((msg) => !msg.id.startsWith("temp-") || msg.content !== newMessage.content);
+            const filtered = prev.filter((msg) => {
+              // Keep the message if it's NOT a temporary message that matches our criteria
+              if (!msg.id.startsWith("temp-")) {
+                return true; // Keep all non-temporary messages
+              }
+
+             
+
+              return msg.content !== newMessage.content && msg.file_path !== newMessage.file_path;
+            });
 
             return [...filtered, newMessage];
           });
+
 
           if (isNearBottom) {
             shouldScrollToBottom.current = true;
