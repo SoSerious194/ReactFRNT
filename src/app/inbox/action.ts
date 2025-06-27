@@ -99,6 +99,37 @@ export const sendMessage = async (conversationId: string, message: string) => {
   }
 }
 
+export const sendVoiceMessage = async (conversationId: string, filePath: string, fileName: string) => {
+ try {
+   const supabase = await createClient();
+
+   const { data, error } = await supabase.rpc("send_message", {
+     p_conversation_id: conversationId,
+     p_message_type: "voice",
+     p_file_path: filePath,
+     p_file_name: fileName,
+     p_content: "",
+   });
+
+   if (error) {
+     throw new Error(error.message);
+   }
+
+   return {
+     data: data,
+     success: true,
+     message: "Voice message sent successfully",
+   };
+ } catch (error) {
+   console.error("Error in sendMessage:", error);
+   return {
+     data: null,
+     success: false,
+     message: "Failed to send voice message",
+   };
+ }
+}
+
 export const getMessages = async (conversationId: string, from: number, to: number) => {
   try {
     const supabase = await createClient();    

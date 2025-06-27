@@ -796,14 +796,14 @@ export type Database = {
           p_conversation_id: string
           p_content: string
           p_message_type?: Database["public"]["Enums"]["message_type"]
-          p_file_url?: string
+          p_file_path?: string
           p_file_name?: string
         }
         Returns: string
       }
     }
     Enums: {
-      message_type: "text" | "image" | "file" | "voice"
+      message_type: "text" | "image" | "file" | "voice" | "video"
       role_type: "Client" | "Coach"
     }
     CompositeTypes: {
@@ -920,7 +920,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      message_type: ["text", "image", "file", "voice"],
+      message_type: ["text", "image", "file", "voice", "video"],
       role_type: ["Client", "Coach"],
     },
   },

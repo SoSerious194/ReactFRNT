@@ -8,11 +8,15 @@ import { createClient } from "@/utils/supabase/client";
 import MessageInputSection from "../MassageInputSection/MessageInputSection";
 import MessageHeaderSection from "../MessageHeaderSection/MessageHeaderSection";
 import MessageDisplaySection from "./MessageDisplaySection";
+import { MessageType as MessageTypeEnum } from "@/types";
 
-export interface MessageType {
+export interface MessageContentType {
   id: string;
   sender_id: string;
   content: string;
+  file_path: string | null;
+  file_name: string | null;
+  message_type: MessageTypeEnum;
   created_at: string;
   isCurrentUser?: boolean;
 }
@@ -77,7 +81,7 @@ export default function MessageSection({ client, conversationId, userId }: { cli
   // Memoize supabase client to prevent recreating on every render
   const supabase = useMemo(() => createClient(), []);
 
-  const [messages, setMessages] = useState<MessageType[]>([]);
+  const [messages, setMessages] = useState<MessageContentType[]>([]);
 
   const { containerRef, isNearBottom, checkScrollPosition } = useScrollPosition();
   const { pagination, updatePagination, resetPagination } = useMessagePagination(conversationId);
@@ -120,7 +124,7 @@ export default function MessageSection({ client, conversationId, userId }: { cli
 
         const { data, error, count } = await supabase
           .from("messages")
-          .select("id, sender_id, content, created_at", { count: "exact" })
+          .select("id, sender_id, content, file_path, file_name, message_type, created_at", { count: "exact" })
           .eq("conversation_id", conversationId)
           .order("created_at", { ascending: false })
           .range(from, to)
@@ -268,7 +272,7 @@ export default function MessageSection({ client, conversationId, userId }: { cli
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          const newMessage = payload.new as MessageType;
+          const newMessage = payload.new as MessageContentType;
 
           // Avoid duplicate messages from optimistic updates
           setMessages((prev) => {
