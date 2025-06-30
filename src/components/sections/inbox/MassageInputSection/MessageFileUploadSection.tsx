@@ -4,6 +4,9 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader, Di
 import { Button } from "@/components/ui/button";
 import { getFileName } from "@/lib/helper";
 import { MessageContentType } from "../MessageSection/MessageSection";
+import { uploadFiles } from "@/lib/upload";
+import { BUCKET_NAMES, MESSAGE_TYPES } from "@/lib/constant";
+import { sendMediaMessage } from "@/app/inbox/action";
 
 // File type configurations with icons
 const ACCEPTED_FILE_TYPES = {
@@ -134,16 +137,73 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({ open, onClose, isLo
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
+      let bucketName;
+      let messageType;
+      if (activeTab === "images") {
+        bucketName = BUCKET_NAMES.CONVERSATION_IMAGES;
+        messageType = MESSAGE_TYPES.IMAGE;
+      } else if (activeTab === "audio") {
+        bucketName = BUCKET_NAMES.CONVERSATION_VOICE;
+        messageType = MESSAGE_TYPES.VOICE;
+      } else if (activeTab === "video") {
+        bucketName = BUCKET_NAMES.CONVERSATION_VIDEO;
+        messageType = MESSAGE_TYPES.VIDEO;
+      } else if (activeTab === "documents") {
+        bucketName = BUCKET_NAMES.CONVERSATION_FILES;
+        messageType = MESSAGE_TYPES.FILE;
+      } else {
+        bucketName = BUCKET_NAMES.CONVERSATION_FILES;
+        messageType = MESSAGE_TYPES.TEXT;
+      }
+
+      const files = [];
+      const optimisticMessages: MessageContentType[] = [];
+
       for (const file of selectedFiles) {
-        const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
-        const fileType = file.type;
         const fileName = getFileName(file);
 
         const filePath = conversationId + "/" + fileName;
+
+        optimisticMessages.push({
+          id: `temp-${Date.now()}`,
+          sender_id: userId,
+          message_type: messageType,
+          file_path: filePath,
+          file_name: fileName,
+          content: "",
+          created_at: new Date().toISOString(),
+        });
+
+        files.push({
+          file,
+          filePath,
+          fileName,
+        });
       }
+
+      setMessages((prev) => [...prev, ...optimisticMessages]);
+
+      const uploadedFiles = await uploadFiles(files, bucketName);
+      console.log("🚀 ~ handleSubmit ~ uploadedFiles:", uploadedFiles)
+
+      const sendMediaPromises = files.map((file) => {
+        return sendMediaMessage(conversationId, file.filePath, file.fileName, messageType);
+      });
+
+      const results = await Promise.all(sendMediaPromises);
+
+      results.forEach((result) => {
+        if (result.success) {
+          setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessages.find((om) => om.file_path === result?.data?.file_path)?.id));
+        }
+      });
+
+
 
       setSelectedFiles([]);
       onClose();
+    } catch (error) {
+      console.error("Error in handleSubmit:", error);
     } finally {
       setIsSubmitting(false);
     }

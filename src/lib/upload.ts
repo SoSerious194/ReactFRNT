@@ -25,4 +25,16 @@ export async function uploadFile(file: File | Blob, path: string, bucketName: st
 }
 
 
+type filesType = {
+  file: File;
+  filePath: string;
+}
+
+export async function uploadFiles(files: filesType[], bucketName: string) {
+  const uploadPromises = files.map((file) => uploadFile(file.file, file.filePath, bucketName));
+  const results = await Promise.all(uploadPromises);
+  return results.filter((result) => result.success);
+}
+
+
 

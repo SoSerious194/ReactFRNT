@@ -1,4 +1,4 @@
-import { UserRoleType } from "@/types";
+import { MessageType, UserRoleType } from "@/types";
 
 export const USER_ROLES: Record<string, UserRoleType> = {
   CLIENT: 'Client' ,
@@ -11,6 +11,15 @@ export const BUCKET_NAMES = {
   CONVERSATION_VOICE: "conversation-voice",
   CONVERSATION_IMAGES: "conversation-images",
   CONVERSATION_VIDEO: "conversation-video",
+} as const;
+
+
+export const MESSAGE_TYPES: Record<string, MessageType> = {
+  IMAGE: "image",
+  VOICE: "voice",
+  VIDEO: "video",
+  FILE: "file",
+  TEXT: "text",
 } as const;
 
 

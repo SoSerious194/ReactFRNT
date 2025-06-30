@@ -1,6 +1,7 @@
 "use server";
 
 import { USER_ROLES } from "@/lib/constant";
+import { MessageType } from "@/types";
 import { createClient } from "@/utils/supabase/server";
 
 export const getClients = async () => {
@@ -129,6 +130,43 @@ export const sendVoiceMessage = async (conversationId: string, filePath: string,
    };
  }
 }
+
+
+export const sendMediaMessage = async (conversationId: string, filePath: string, fileName: string, messageType: MessageType) => {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase.rpc("send_message", {
+      p_conversation_id: conversationId,
+      p_message_type: messageType,
+      p_file_path: filePath,
+      p_file_name: fileName,
+      p_content: "",
+    });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return {
+        data: {
+          file_path: filePath,
+        },
+        success: true,
+        message: "Media message sent successfully",
+      };
+  } catch (error) {
+
+    console.error("Error in sendMediaMessage:", error);
+    return {
+      data: null,
+      success: false,
+      message: "Failed to send media message",
+    };
+  }
+}
+
+
 
 export const getMessages = async (conversationId: string, from: number, to: number) => {
   try {
