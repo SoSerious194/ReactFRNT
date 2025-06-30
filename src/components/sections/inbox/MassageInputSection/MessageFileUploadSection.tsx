@@ -165,7 +165,7 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({ open, onClose, isLo
         const filePath = conversationId + "/" + fileName;
 
         optimisticMessages.push({
-          id: `temp-${Date.now()}`,
+          id: `temp-${Date.now() + Math.random()}`,
           sender_id: userId,
           message_type: messageType,
           file_path: filePath,
@@ -184,7 +184,6 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({ open, onClose, isLo
       setMessages((prev) => [...prev, ...optimisticMessages]);
 
       const uploadedFiles = await uploadFiles(files, bucketName);
-      console.log("🚀 ~ handleSubmit ~ uploadedFiles:", uploadedFiles)
 
       const sendMediaPromises = files.map((file) => {
         return sendMediaMessage(conversationId, file.filePath, file.fileName, messageType);

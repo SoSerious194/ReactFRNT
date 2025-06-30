@@ -7,8 +7,9 @@ import { ClientType } from "@/types/client";
 import { createClient } from "@/utils/supabase/client";
 import MessageInputSection from "../MassageInputSection/MessageInputSection";
 import MessageHeaderSection from "../MessageHeaderSection/MessageHeaderSection";
-import MessageDisplaySection from "./MessageDisplaySection";
 import { MessageType as MessageTypeEnum } from "@/types";
+import MessageDisplaySection from "../MessageDisplaySection";
+import { cn } from "@/lib/utils";
 
 export interface MessageContentType {
   id: string;
@@ -33,6 +34,22 @@ const MESSAGES_PER_PAGE = 20;
 const SCROLL_THRESHOLD = 100;
 const NEAR_BOTTOM_THRESHOLD = 100;
 const SCROLL_DEBOUNCE_MS = 150;
+const MESSAGE_GROUP_TIME_THRESHOLD = 5 * 60 * 1000; 
+
+// Message grouping utility
+const shouldGroupWithPrevious = (currentMessage: MessageContentType, previousMessage: MessageContentType | undefined): boolean => {
+  if (!previousMessage) return false;
+
+  // Same sender check
+  if (currentMessage.sender_id !== previousMessage.sender_id) return false;
+
+  // Time threshold check (optional - group messages within 5 minutes)
+  const currentTime = new Date(currentMessage.created_at).getTime();
+  const previousTime = new Date(previousMessage.created_at).getTime();
+  const timeDiff = currentTime - previousTime;
+
+  return timeDiff <= MESSAGE_GROUP_TIME_THRESHOLD;
+};
 
 // Custom hooks
 const useScrollPosition = () => {
@@ -286,14 +303,11 @@ export default function MessageSection({ client, conversationId, userId }: { cli
                 return true; // Keep all non-temporary messages
               }
 
-             
-
               return msg.content !== newMessage.content && msg.file_path !== newMessage.file_path;
             });
 
             return [...filtered, newMessage];
           });
-
 
           if (isNearBottom) {
             shouldScrollToBottom.current = true;
@@ -339,48 +353,77 @@ export default function MessageSection({ client, conversationId, userId }: { cli
         )}
 
         {/* Messages */}
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const isMe = message.sender_id === userId;
           const isOptimistic = message.id.startsWith("temp-");
 
+         const isGrouped = shouldGroupWithPrevious(message, messages[index - 1]);
+
+         // Determine if we should show the header (avatar and name/time)
+         const showMessageHeader = !isGrouped;
+
+
+          const messageSpacing = isGrouped ? "mt-5" : "mt-8";
           return (
-            <div key={message.id} className={`flex   mb-8 ${isMe ? "justify-end" : ""} ${isOptimistic ? "opacity-70" : ""}`}>
+            <div key={message.id} className={cn("flex", messageSpacing, isMe && "justify-end", isOptimistic && "opacity-70", index === 0 && "mt-2", index === messages.length - 1 && "mb-6")}>
               {!isMe && (
-                <Avatar className="h-10 w-10 mr-3">
-                  <img src={client?.profile_image_url || "https://c.animaapp.com/mbtb1be13lPm2M/img/img-4.png"} alt="Sender" className="h-full w-full object-cover" />
-                </Avatar>
-              )}
-              <div className={`flex flex-col ${isMe ? "items-end" : ""}`}>
-                <div className="flex items-center mb-1">
-                  {!isMe ? (
-                    <>
-                      <span className="font-normal text-base text-gray-900">{client?.full_name}</span>
-                      <span className="ml-2 text-xs text-gray-500">
-                        {new Date(message.created_at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </>
+                <div className="mr-3">
+                  {showMessageHeader ? (
+                    <Avatar className="h-10 w-10">
+                      <img src={client?.profile_image_url || "https://c.animaapp.com/mbtb1be13lPm2M/img/img-4.png"} alt="Sender" className="h-full w-full object-cover" />
+                    </Avatar>
                   ) : (
-                    <>
-                      <span className="mr-2 text-xs text-gray-500">
-                        {new Date(message.created_at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      <span className="font-normal text-base text-gray-900">You</span>
-                    </>
+                    <div className="h-10 w-10" /> // Spacer to maintain alignment
                   )}
                 </div>
-
+              )}
+              <div className={`flex flex-col ${isMe ? "items-end" : ""}`}>
+                {showMessageHeader && (
+                  <div className="flex items-center mb-1">
+                    {!isMe ? (
+                      <>
+                        <span className="font-normal text-base text-gray-900">{client?.full_name || "Client"}</span>
+                        <span className="ml-2 text-xs text-gray-500">
+                          {new Date(message.created_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="mr-2 text-xs text-gray-500">
+                          {new Date(message.created_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        <span className="font-normal text-base text-gray-900">You</span>
+                      </>
+                    )}
+                  </div>
+                )}
                 <MessageDisplaySection message={message} isMe={isMe} isOptimistic={isOptimistic} />
+
+                {isOptimistic && (
+                  <div className={cn(" mt-2 text-xs text-gray-400 flex items-center space-x-1", isMe ? "right-0" : "left-0")}>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Sending...</span>
+                  </div>
+                )}
+
+                
               </div>
               {isMe && (
-                <Avatar className="h-10 w-10 ml-3">
-                  <img src="https://c.animaapp.com/mbtb1be13lPm2M/img/img-10.png" alt="You" className="h-full w-full object-cover" />
-                </Avatar>
+                <div className="ml-3">
+                  {showMessageHeader ? (
+                    <Avatar className="h-10 w-10">
+                      <img src="https://c.animaapp.com/mbtb1be13lPm2M/img/img-10.png" alt="You" className="h-full w-full object-cover" />
+                    </Avatar>
+                  ) : (
+                    <div className="h-10 w-10" />
+                  )}
+                </div>
               )}
             </div>
           );

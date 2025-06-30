@@ -46,9 +46,6 @@ export function MessageInputSection({ isLoadingAny, userId, setMessages, shouldS
     }
 
     try {
-      
-
-
       const { success, message } = await sendMessage(conversationId, messageContent);
 
       if (!success) {
@@ -103,7 +100,16 @@ export function MessageInputSection({ isLoadingAny, userId, setMessages, shouldS
           <PaperclipIcon className="h-4 w-3.5" />
         </Button>
 
-        <MessageFileUploadSection open={isFileUploadOpen} onClose={() => setIsFileUploadOpen(false)} isLoadingAny={isLoadingAny} conversationId={conversationId} userId={userId} setMessages={setMessages} shouldScrollToBottom={shouldScrollToBottom} isNearBottom={isNearBottom}  />
+        <MessageFileUploadSection
+          open={isFileUploadOpen}
+          onClose={() => setIsFileUploadOpen(false)}
+          isLoadingAny={isLoadingAny}
+          conversationId={conversationId}
+          userId={userId}
+          setMessages={setMessages}
+          shouldScrollToBottom={shouldScrollToBottom}
+          isNearBottom={isNearBottom}
+        />
 
         <div className="flex-1">
           <Input
