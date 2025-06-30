@@ -34,7 +34,7 @@ const MESSAGES_PER_PAGE = 20;
 const SCROLL_THRESHOLD = 100;
 const NEAR_BOTTOM_THRESHOLD = 100;
 const SCROLL_DEBOUNCE_MS = 150;
-const MESSAGE_GROUP_TIME_THRESHOLD = 5 * 60 * 1000; 
+const MESSAGE_GROUP_TIME_THRESHOLD = 5 * 60 * 1000;
 
 // Message grouping utility
 const shouldGroupWithPrevious = (currentMessage: MessageContentType, previousMessage: MessageContentType | undefined): boolean => {
@@ -179,6 +179,8 @@ export default function MessageSection({ client, conversationId, userId }: { cli
           return;
         }
 
+
+      } finally {
         updatePagination({
           isLoading: false,
           isInitialLoading: false,
@@ -324,7 +326,7 @@ export default function MessageSection({ client, conversationId, userId }: { cli
   return (
     <div className="flex flex-col h-full w-full border-l bg-white">
       <MessageHeaderSection client={client} />
-      <div className="h-full p-6 overflow-y-scroll rounded-md border" ref={containerRef}>
+      <div className="h-full p-6 overflow-y-scroll rounded-md " ref={containerRef}>
         {/* Loading indicator for pagination */}
         {pagination.isLoading && !pagination.isInitialLoading && (
           <div className="flex justify-center py-4">
@@ -332,13 +334,6 @@ export default function MessageSection({ client, conversationId, userId }: { cli
               <Loader2 className="h-4 w-4 animate-spin text-green-500" />
               <span className="text-sm text-gray-500">Loading older messages...</span>
             </div>
-          </div>
-        )}
-
-        {/* No more messages indicator */}
-        {!pagination.hasMore && hasMessages && (
-          <div className="flex justify-center py-4">
-            <span className="text-sm text-gray-400">No more messages</span>
           </div>
         )}
 
@@ -352,16 +347,36 @@ export default function MessageSection({ client, conversationId, userId }: { cli
           </div>
         )}
 
+        {pagination.isInitialLoading && (
+          <div className="h-full flex flex-col">
+            <div className="flex-1 p-6">
+              <div className="flex flex-col justify-center items-center h-full space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                  <span className="text-lg font-medium text-gray-600">Loading conversation...</span>
+                </div>
+                <p className="text-sm text-gray-500">Please wait while we fetch your messages</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* No more messages indicator */}
+        {!pagination.hasMore && hasMessages && (
+          <div className="flex justify-center py-4">
+            <span className="text-sm text-gray-400">No more messages</span>
+          </div>
+        )}
+
         {/* Messages */}
         {messages.map((message, index) => {
           const isMe = message.sender_id === userId;
           const isOptimistic = message.id.startsWith("temp-");
 
-         const isGrouped = shouldGroupWithPrevious(message, messages[index - 1]);
+          const isGrouped = shouldGroupWithPrevious(message, messages[index - 1]);
 
-         // Determine if we should show the header (avatar and name/time)
-         const showMessageHeader = !isGrouped;
-
+          // Determine if we should show the header (avatar and name/time)
+          const showMessageHeader = !isGrouped;
 
           const messageSpacing = isGrouped ? "mt-5" : "mt-8";
           return (
@@ -411,8 +426,6 @@ export default function MessageSection({ client, conversationId, userId }: { cli
                     <span>Sending...</span>
                   </div>
                 )}
-
-                
               </div>
               {isMe && (
                 <div className="ml-3">

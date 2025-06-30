@@ -4,9 +4,9 @@ import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ClientType } from "@/types/client";
+import { ClientTypeWithRole } from "@/types/client";
 
-export default function ClientListingSection({ clients }: { clients: ClientType[] }) {
+export default function ClientListingSection({ clients }: { clients: ClientTypeWithRole[] }) {
 
   const router = useRouter();
   const searchParams = useSearchParams();

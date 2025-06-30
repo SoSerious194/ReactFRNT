@@ -204,3 +204,28 @@ export const getUserId = async () => {
   const { data: user, error: userError } = await supabase.auth.getUser();
   return user.user?.id;
 }
+
+
+export const getClient = async (clientId: string) => {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("users").select("*").eq("id", clientId).single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      data: data,
+      success: true,
+      message: "Client fetched successfully",
+    };
+  } catch (error) {
+    console.error("Error in getClient:", error);
+    return {
+      data: null,
+      success: false,
+      message: "Failed to fetch client",
+    };
+  }
+}
