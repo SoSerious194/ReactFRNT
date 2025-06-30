@@ -5,32 +5,58 @@ import { redirect } from 'next/navigation'
 
 import { createClient } from '@/utils/supabase/server'
 import { UserRoleType } from '@/types'
+import { jwtDecode, JwtPayload } from 'jwt-decode'
+import { USER_ROLES } from '@/lib/constant'
+
+
+type CustomJwtType = JwtPayload & {
+  user_role: string;
+};
+
 
 export async function login(formData: FormData) {
-  const supabase = await createClient()
 
-  // type-casting here for convenience
-  // in practice, you should validate your inputs
+  try {
+    const supabase = await createClient()
+
+  
   const data = {
     email: formData.get('email') as string,
     password: formData.get('password') as string,
   }
 
-  const { error } = await supabase.auth.signInWithPassword(data)
+  const { data: {session}, error } = await supabase.auth.signInWithPassword(data)
+
+  if(!session) {
+    await supabase.auth.signOut()
+    return { success: false, message: 'Invalid credentials' }
+  }
+
+  const jwt: CustomJwtType = jwtDecode(session.access_token);
+  const user_role = jwt.user_role ?? null;
+
+ if(user_role === USER_ROLES.CLIENT) {
+   await supabase.auth.signOut()
+   return { success: false, message: 'Invalid credentials' }
+ }
 
   if (error) {
     redirect('/error')
   }
 
   revalidatePath('/', 'layout')
-  redirect('/')
+  
+  return { success: true, message: 'Login successful',  }
+} catch (error) {
+  console.error(error)
+  return { success: false, message: 'Login failed' }
+}
 }
 
 export async function signup(formData: FormData) {
   const supabase = await createClient()
+  try {
 
-  // type-casting here for convenience
-  // in practice, you should validate your inputs
   const data = {
     email: formData.get('email') as string,
     password: formData.get('password') as string,
@@ -50,12 +76,17 @@ export async function signup(formData: FormData) {
   })
 
   if (error) {
-    redirect('/error')
+   throw new Error(error.message)
   }
 
-  revalidatePath('/', 'layout')
-  redirect('/')
+    revalidatePath('/', 'layout')
+  return { success: true, message: 'Signup successful' }
+} catch (error) {
+  console.error(error)
+  return { success: false, message: error instanceof Error ? error.message : 'An unknown error occurred' }
 }
+}
+
 
 export async function logout() {
   const supabase = await createClient()

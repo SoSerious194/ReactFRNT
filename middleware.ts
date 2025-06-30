@@ -1,8 +1,29 @@
-import { type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/utils/supabase/middleware'
+import { getUserRole } from '@/lib/roles'
+import { USER_ROLES } from '@/lib/constant'
+import { logout } from '@/app/login/actions'
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+
+  const {user, supabaseResponse} = await updateSession(request)
+
+
+  const userRole = await getUserRole()
+  console.log("🚀 ~ middleware ~ userRole:", userRole)
+
+
+  if (user && userRole === USER_ROLES.CLIENT) {
+      await logout();
+      return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if(!user ){
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  
+  return supabaseResponse
+  
 }
 
 export const config = {
