@@ -1,17 +1,16 @@
 import React, { useRef, useState, useEffect, RefObject, SetStateAction, Dispatch } from "react";
 import { FileText, X, Upload, Image, Volume2, Video, Check } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogHeader  } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { getFileName } from "@/lib/helper";
-import { MessageContentType } from "../MessageSection/MessageSection";
 import { uploadFiles } from "@/lib/upload";
 import { BUCKET_NAMES, MESSAGE_TYPES } from "@/lib/constant";
-import { sendMediaMessage } from "@/app/inbox/action";
-
+import { sendMediaMessage } from "@/app/inbox/@messages/action";
+import { MessageContentType } from "../../MessageSection";
 // File type configurations with icons
 const ACCEPTED_FILE_TYPES = {
   documents: {
-    types: ".pdf,.doc,.docx,.txt,.rtf",
+    types: ".pdf,.doc,.docx,.txt",
     icon: FileText,
     label: "Documents",
     color: "text-blue-600",
@@ -35,6 +34,9 @@ const ACCEPTED_FILE_TYPES = {
     color: "text-red-600",
   },
 };
+const MAX_FILE_SIZE = 10 * 1024 * 1024; 
+
+
 
 interface FileUploadDialogProps {
   open: boolean;
@@ -46,6 +48,8 @@ interface FileUploadDialogProps {
   shouldScrollToBottom: RefObject<boolean>;
   isNearBottom: boolean;
 }
+
+
 
 const FileUploadDialog: React.FC<FileUploadDialogProps> = ({ open, onClose, isLoadingAny, conversationId, userId, setMessages, shouldScrollToBottom, isNearBottom }) => {
   const [activeTab, setActiveTab] = useState<keyof typeof ACCEPTED_FILE_TYPES>("documents");

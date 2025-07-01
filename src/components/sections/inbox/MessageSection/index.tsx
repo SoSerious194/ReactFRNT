@@ -5,10 +5,10 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { Avatar } from "@/components/ui/avatar";
 import { ClientType } from "@/types/client";
 import { createClient } from "@/utils/supabase/client";
-import MessageInputSection from "../MassageInputSection/MessageInputSection";
-import MessageHeaderSection from "../MessageHeaderSection/MessageHeaderSection";
+import MessageInputSection from "./MassageInputSection";
+import MessageHeaderSection from "./MessageHeaderSection";
 import { MessageType as MessageTypeEnum } from "@/types";
-import MessageDisplaySection from "../MessageDisplaySection";
+import MessageDisplaySection from "./MessageDisplaySection";
 import { cn } from "@/lib/utils";
 
 export interface MessageContentType {

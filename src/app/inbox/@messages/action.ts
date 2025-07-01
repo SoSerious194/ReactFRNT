@@ -1,0 +1,193 @@
+"use server";
+
+import { MessageType } from "@/types";
+import { createClient } from "@/utils/supabase/server";
+
+export const getConversationId = async (clientId: string) => {
+  try {
+    const supabase = await createClient();
+
+    const { data: user, error: userError } = await supabase.auth.getUser();
+
+    if (userError) {
+      throw new Error(userError.message);
+    }
+
+    if (!user.user?.id || !clientId) {
+      return null;
+    }
+
+    const { data, error } = await supabase.rpc("get_or_create_conversation", {
+      user_a: user.user?.id,
+      user_b: clientId,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in getConversationId:", error);
+    return null;
+  }
+};
+
+
+
+export const sendMessage = async (conversationId: string, message: string) => {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase.rpc("send_message", {
+      p_conversation_id: conversationId,
+      p_content: message,
+      p_message_type: "text",
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      data: data,
+      success: true,
+      message: "Message sent successfully",
+    };
+  } catch (error) {
+    console.error("Error in sendMessage:", error);
+    return {
+      data: null,
+      success: false,
+      message: "Failed to send message",
+    };
+  }
+};
+
+export const sendVoiceMessage = async (conversationId: string, filePath: string, fileName: string) => {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase.rpc("send_message", {
+      p_conversation_id: conversationId,
+      p_message_type: "voice",
+      p_file_path: filePath,
+      p_file_name: fileName,
+      p_content: "",
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      data: data,
+      success: true,
+      message: "Voice message sent successfully",
+    };
+  } catch (error) {
+    console.error("Error in sendMessage:", error);
+    return {
+      data: null,
+      success: false,
+      message: "Failed to send voice message",
+    };
+  }
+};
+
+export const sendMediaMessage = async (conversationId: string, filePath: string, fileName: string, messageType: MessageType) => {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase.rpc("send_message", {
+      p_conversation_id: conversationId,
+      p_message_type: messageType,
+      p_file_path: filePath,
+      p_file_name: fileName,
+      p_content: "",
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      data: {
+        file_path: filePath,
+      },
+      success: true,
+      message: "Media message sent successfully",
+    };
+  } catch (error) {
+    console.error("Error in sendMediaMessage:", error);
+    return {
+      data: null,
+      success: false,
+      message: "Failed to send media message",
+    };
+  }
+};
+
+
+
+
+
+
+
+
+export const getMessages = async (conversationId: string, from: number, to: number) => {
+  try {
+    const supabase = await createClient();
+
+    const { data, error, count } = await supabase.from("messages").select("*", { count: "exact" }).eq("conversation_id", conversationId).order("created_at", { ascending: false }).range(from, to);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      data: data,
+      count,
+      success: true,
+      message: "Messages fetched successfully",
+    };
+  } catch (error) {
+    console.error("Error in getMessages:", error);
+    return {
+      data: [],
+      count: 0,
+      success: false,
+      message: "Failed to fetch messages",
+    };
+  }
+};
+
+export const getUserId = async () => {
+  const supabase = await createClient();
+  const { data: user, error: userError } = await supabase.auth.getUser();
+  return user.user?.id;
+};
+
+export const getClient = async (clientId: string) => {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.from("users").select("*").eq("id", clientId).single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      data: data,
+      success: true,
+      message: "Client fetched successfully",
+    };
+  } catch (error) {
+    console.error("Error in getClient:", error);
+    return {
+      data: null,
+      success: false,
+      message: "Failed to fetch client",
+    };
+  }
+};

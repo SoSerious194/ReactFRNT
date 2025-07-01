@@ -2,10 +2,10 @@ import { PaperclipIcon, MicIcon, SendIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dispatch, RefObject, SetStateAction, useCallback, useState } from "react";
-import { sendMessage } from "@/app/inbox/action";
-import { MessageContentType } from "../MessageSection/MessageSection";
+import { sendMessage } from "@/app/inbox/@messages/action";
 import { VoiceMessageInput } from "./MessageVoiceSend";
 import MessageFileUploadSection from "./MessageFileUploadSection";
+import { MessageContentType } from "..";
 
 interface MessageInputSectionProps {
   isLoadingAny: boolean;

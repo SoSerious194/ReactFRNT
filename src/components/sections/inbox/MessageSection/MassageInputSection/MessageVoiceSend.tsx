@@ -5,8 +5,8 @@ import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { uploadFile } from "@/lib/upload";
 import { BUCKET_NAMES } from "@/lib/constant";
 import { getFileName } from "@/lib/helper";
-import { sendMessage, sendVoiceMessage } from "@/app/inbox/action";
-import { MessageContentType } from "../MessageSection/MessageSection";
+import { sendVoiceMessage } from "@/app/inbox/@messages/action";
+import { MessageContentType } from "..";
 
 
 interface VoiceMessageInputProps {

@@ -1,8 +1,8 @@
 import { ChatSection } from "@/components/sections/ChatSection";
 import React from "react";
-import { getClient, getConversationId } from "../action";
-import { getUserId } from "../action";
-import MessageSection from "@/components/sections/inbox/MessageSection/MessageSection";
+import { getClient, getConversationId } from "./action";
+import { getUserId } from "./action";
+import MessageSection from "@/components/sections/inbox/MessageSection";
 import { SearchParamsType } from "@/types";
 
 // Error component

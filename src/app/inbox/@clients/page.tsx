@@ -1,6 +1,6 @@
 import ClientListingSection from "@/components/sections/inbox/ClientListingSection/ClientListingSection";
 import React from "react";
-import { getClients } from "../action";
+import { getClients } from "./action";
 
 const ClientListingPage = async () => {
   const { data } = await getClients();

@@ -1,7 +1,7 @@
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ClientType } from '@/types/client';
-import { PhoneIcon, VideoIcon } from 'lucide-react';
+import { PhoneIcon, UserIcon, VideoIcon } from 'lucide-react';
 import { MoreHorizontalIcon } from 'lucide-react';
 import React from 'react'
 
@@ -17,12 +17,12 @@ const MessageHeaderSection = ({client}: {client: ClientType}) => {
 
         {!client?.profile_image_url && (
           <div className="flex items-center justify-center w-12 h-12 bg-green-500 rounded-full">
-            <img className="w-5 h-4" alt="Group icon" src="https://c.animaapp.com/mbtb1be13lPm2M/img/frame-2.svg" />
+            <UserIcon className="w-6 h-6 text-white" />
           </div>
         )}
         <div className="ml-4">
           <h2 className="font-bold text-xl text-gray-900">{client?.full_name}</h2>
-          <p className="text-sm text-gray-500">24 members • 15 online</p>
+          <p className="text-sm text-gray-500 -mt-1">{client?.email}</p>
         </div>
       </div>
       <div className="flex items-center space-x-3">
