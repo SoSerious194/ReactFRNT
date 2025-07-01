@@ -1,7 +1,8 @@
 import { Play, Pause, Volume2 } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
-import { MessageContentType } from "../MessageSection/MessageSection";
 import { Slider } from "@/components/ui/slider";
+import { MessageContentType } from "@/types";
+
 
 const VoiceDisplay = ({ error, loading, fileUrl, message }: { error: string | null; loading: boolean; fileUrl: string | null; message: MessageContentType }) => {
   const [isPlaying, setIsPlaying] = useState(false);

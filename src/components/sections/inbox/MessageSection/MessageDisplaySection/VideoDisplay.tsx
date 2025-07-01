@@ -23,16 +23,14 @@ const VideoDisplay = ({ loading, error, fileUrl }: { loading: boolean; error: st
 
 export default VideoDisplay;
 
-const VideoDisplaySkeleton = () => {
-  return (
-    <div className="space-y-2 min-w-[300px] ">
-      <div className="relative">
-        <div className="flex items-center justify-center w-full min-h-[250px] bg-gray-200 rounded-lg animate-pulse">
-          <div className="flex flex-col items-center space-y-2">
-            <Video className="w-8 h-8 text-gray-400" />
-          </div>
+const VideoDisplaySkeleton = () => (
+  <div className="space-y-2 min-w-[300px]">
+    <div className="relative">
+      <div className="flex items-center justify-center w-full min-h-[250px] bg-gray-200 rounded-lg animate-pulse">
+        <div className="flex flex-col items-center space-y-2">
+          <Video className="w-8 h-8 text-gray-400" />
         </div>
       </div>
     </div>
-  );
-};
+  </div>
+);

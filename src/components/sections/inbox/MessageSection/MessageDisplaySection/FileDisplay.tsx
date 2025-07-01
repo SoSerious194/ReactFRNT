@@ -1,8 +1,7 @@
 import { Download } from "lucide-react";
-import { Loader2 } from "lucide-react";
 import { FileText } from "lucide-react";
 import React from "react";
-import { MessageContentType } from "../MessageSection/MessageSection";
+import { MessageContentType } from "@/types";
 
 const FileDisplay = ({ message, loading, error, fileUrl }: { message: MessageContentType; loading: boolean; error: string | null; fileUrl: string | null }) => {
   const handleDownload = async () => {

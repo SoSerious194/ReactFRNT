@@ -6,7 +6,7 @@ import { uploadFile } from "@/lib/upload";
 import { BUCKET_NAMES } from "@/lib/constant";
 import { getFileName } from "@/lib/helper";
 import { sendVoiceMessage } from "@/app/inbox/@messages/action";
-import { MessageContentType } from "..";
+import { MessageContentType } from "@/types";
 
 
 interface VoiceMessageInputProps {

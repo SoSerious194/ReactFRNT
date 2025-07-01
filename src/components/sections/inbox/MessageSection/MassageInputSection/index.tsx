@@ -5,8 +5,7 @@ import { Dispatch, RefObject, SetStateAction, useCallback, useState } from "reac
 import { sendMessage } from "@/app/inbox/@messages/action";
 import { VoiceMessageInput } from "./MessageVoiceSend";
 import MessageFileUploadSection from "./MessageFileUploadSection";
-import { MessageContentType } from "..";
-
+import { MessageContentType } from "@/types";
 interface MessageInputSectionProps {
   isLoadingAny: boolean;
   userId: string;

@@ -6,7 +6,7 @@ import { getFileName } from "@/lib/helper";
 import { uploadFiles } from "@/lib/upload";
 import { BUCKET_NAMES, MESSAGE_TYPES } from "@/lib/constant";
 import { sendMediaMessage } from "@/app/inbox/@messages/action";
-import { MessageContentType } from "../../MessageSection";
+import { MessageContentType } from "@/types";
 // File type configurations with icons
 const ACCEPTED_FILE_TYPES = {
   documents: {

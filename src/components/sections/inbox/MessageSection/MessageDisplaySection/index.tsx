@@ -1,21 +1,18 @@
 import { Card } from "@/components/ui/card";
 import React, { useState, useEffect } from "react";
-import { FileText, Download, Image as ImageIcon, Video, Mic, Play, Pause, Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { BUCKET_NAMES } from "@/lib/constant";
-import { MessageContentType } from "../MessageSection/MessageSection";
 import VoiceDisplay from "./VoiceDisplay";
 import FileDisplay from "./FileDisplay";
 import VideoDisplay from "./VideoDisplay";
 import ImageDisplay from "./ImageDisplay";
+import { MessageContentType } from "@/types";
 
 interface MessageDisplaySectionProps {
   message: MessageContentType;
   isMe: boolean;
   isOptimistic: boolean;
 }
-
-
 
 const MessageDisplaySection = ({ message, isMe, isOptimistic }: MessageDisplaySectionProps) => {
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -104,7 +101,7 @@ const MessageDisplaySection = ({ message, isMe, isOptimistic }: MessageDisplaySe
     <Card
       className={`
         relative
-        p-4 
+        p-3 
         max-w-[70%] 
         sm:max-w-[448px] 
         border-0 
@@ -112,7 +109,7 @@ const MessageDisplaySection = ({ message, isMe, isOptimistic }: MessageDisplaySe
         rounded-2xl 
         break-words 
         hyphens-auto
-        ${isMe ? "bg-green-500 text-white rounded-br-md" : "bg-gray-100 text-gray-900 rounded-bl-md"}
+        ${isMe ? "bg-green-500 text-white " : "bg-gray-100 text-gray-900 "}
         ${isOptimistic || loading ? "opacity-70" : ""}
       `}
     >
