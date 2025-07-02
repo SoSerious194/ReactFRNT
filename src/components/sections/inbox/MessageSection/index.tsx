@@ -24,10 +24,7 @@ const MESSAGE_GROUP_TIME_THRESHOLD = 5 * 60 * 1000;
 const shouldGroupWithPrevious = (currentMessage: MessageContentType, previousMessage: MessageContentType | undefined): boolean => {
   if (!previousMessage) return false;
 
-  // Same sender check
   if (currentMessage.sender_id !== previousMessage.sender_id) return false;
-
-  // Time threshold check (optional - group messages within 5 minutes)
   const currentTime = new Date(currentMessage.created_at).getTime();
   const previousTime = new Date(previousMessage.created_at).getTime();
   const timeDiff = currentTime - previousTime;
@@ -40,9 +37,12 @@ export default function MessageSection({ client, conversationId, userId }: { cli
   const supabase = useMemo(() => createClient(), []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const previousScrollHeight = useRef(0);
+  
   const shouldScrollToBottom = useRef(true);
   
   const { messages, setMessages, loadMoreMessages, pagination } = useMessages(conversationId);
+
+  
   const { containerRef, isNearBottom, checkScrollPosition } = useScrollPosition();
 
   // Utility functions
@@ -92,7 +92,7 @@ export default function MessageSection({ client, conversationId, userId }: { cli
 
       return () => clearTimeout(timeoutId);
     }
-  }, [messages, pagination.isInitialLoading, scrollToBottom]);
+  }, [messages, pagination.isInitialLoading, scrollToBottom, shouldScrollToBottom.current]);
 
   // Real-time message subscription
   useEffect(() => {
@@ -226,9 +226,9 @@ export default function MessageSection({ client, conversationId, userId }: { cli
         )}
 
         {pagination.isInitialLoading && renderLoadingState()}
-        {messages.length === 0 && !pagination.isInitialLoading && renderEmptyState()}
 
-        {messages.map(renderMessage)}
+        {messages.length === 0 && !pagination.isInitialLoading && renderEmptyState()}
+        {messages.length > 0 && messages.map(renderMessage)}
 
         <div ref={messagesEndRef} />
       </div>
