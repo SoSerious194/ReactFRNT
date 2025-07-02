@@ -8,7 +8,6 @@ import { getFileName } from "@/lib/helper";
 import { sendVoiceMessage } from "@/app/inbox/@messages/action";
 import { MessageContentType } from "@/types";
 
-
 interface VoiceMessageInputProps {
   isLoadingAny: boolean;
   userId: string;
@@ -19,12 +18,32 @@ interface VoiceMessageInputProps {
   onExitVoiceMode: () => void;
 }
 
-export function VoiceMessageInput({ isLoadingAny, userId, setMessages, conversationId, isNearBottom, shouldScrollToBottom, onExitVoiceMode }: VoiceMessageInputProps) {
+export function VoiceMessageInput({
+  isLoadingAny,
+  userId,
+  setMessages,
+  conversationId,
+  isNearBottom,
+  shouldScrollToBottom,
+  onExitVoiceMode,
+}: VoiceMessageInputProps) {
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [audioPreviewElement, setAudioPreviewElement] = useState<HTMLAudioElement | null>(null);
   const [waveformBars] = useState(Array.from({ length: 20 }, () => Math.random()));
 
-  const { recordingState, startRecording, pauseRecording, resumeRecording, stopRecording, resetRecording, audioURL, duration, hasMicrophonePermission, isSupported, audioBlob } = useVoiceRecorder();
+  const {
+    recordingState,
+    startRecording,
+    pauseRecording,
+    resumeRecording,
+    stopRecording,
+    resetRecording,
+    audioURL,
+    duration,
+    hasMicrophonePermission,
+    isSupported,
+    audioBlob,
+  } = useVoiceRecorder();
 
   const canSendVoice = audioBlob !== null && recordingState === "inactive";
 
@@ -42,7 +61,6 @@ export function VoiceMessageInput({ isLoadingAny, userId, setMessages, conversat
     const fileName = `voice_${getFileName()}.webm`;
     const filePath = `${conversationId}/${fileName}`;
 
-    
     const optimisticMessage: MessageContentType = {
       id: `temp-${Date.now()}`,
       sender_id: userId,
@@ -54,6 +72,7 @@ export function VoiceMessageInput({ isLoadingAny, userId, setMessages, conversat
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
+    onExitVoiceMode();
 
     if (isNearBottom) {
       shouldScrollToBottom.current = true;
@@ -71,11 +90,21 @@ export function VoiceMessageInput({ isLoadingAny, userId, setMessages, conversat
       }
 
       resetRecording();
-      onExitVoiceMode();
     } catch (error) {
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessage.id));
     }
-  }, [canSendVoice, audioBlob, userId, duration, isNearBottom, conversationId, setMessages, shouldScrollToBottom, resetRecording, onExitVoiceMode]);
+  }, [
+    canSendVoice,
+    audioBlob,
+    userId,
+    duration,
+    isNearBottom,
+    conversationId,
+    setMessages,
+    shouldScrollToBottom,
+    resetRecording,
+    onExitVoiceMode,
+  ]);
 
   // Handle voice recording controls
   const handleVoiceRecord = useCallback(async () => {
@@ -160,14 +189,27 @@ export function VoiceMessageInput({ isLoadingAny, userId, setMessages, conversat
           <div className="flex items-center space-x-2">
             <div
               className={`w-2 h-2 rounded-full ${
-                recordingState === "recording" ? "bg-red-500 animate-pulse" : recordingState === "paused" ? "bg-amber-500" : audioBlob ? "bg-green-500" : "bg-slate-400"
+                recordingState === "recording"
+                  ? "bg-red-500 animate-pulse"
+                  : recordingState === "paused"
+                  ? "bg-amber-500"
+                  : audioBlob
+                  ? "bg-green-500"
+                  : "bg-slate-400"
               }`}
             />
             <span className={`text-sm ${getStatusColor()}`}>{getStatusMessage()}</span>
           </div>
           <div className="flex items-center space-x-3">
-            <span className="text-sm font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded">{formatDuration(duration)}</span>
-            <Button variant="ghost" size="sm" onClick={handleDiscardRecording} className="h-8 w-8 p-0 text-slate-500 hover:text-slate-700">
+            <span className="text-sm font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded">
+              {formatDuration(duration)}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDiscardRecording}
+              className="h-8 w-8 p-0 text-slate-500 hover:text-slate-700"
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -178,7 +220,9 @@ export function VoiceMessageInput({ isLoadingAny, userId, setMessages, conversat
           {waveformBars.slice(0, 30).map((height, index) => (
             <div
               key={index}
-              className={`w-1 rounded-full transition-all duration-200 ${recordingState === "recording" ? "bg-red-500 animate-pulse" : audioBlob ? "bg-green-500" : "bg-slate-300"}`}
+              className={`w-1 rounded-full transition-all duration-200 ${
+                recordingState === "recording" ? "bg-red-500 animate-pulse" : audioBlob ? "bg-green-500" : "bg-slate-300"
+              }`}
               style={{
                 height: `${recordingState === "recording" ? Math.random() * 20 + 6 : height * 15 + 6}px`,
                 animationDelay: `${index * 50}ms`,
@@ -190,7 +234,13 @@ export function VoiceMessageInput({ isLoadingAny, userId, setMessages, conversat
         {/* Control Buttons */}
         <div className="flex items-center justify-center space-x-4">
           {/* Delete Button */}
-          <Button variant="outline" size="icon" onClick={handleDiscardRecording} disabled={isLoadingAny} className="h-10 w-10 rounded-full border-red-200 text-red-500 hover:bg-red-50">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleDiscardRecording}
+            disabled={isLoadingAny}
+            className="h-10 w-10 rounded-full border-red-200 text-red-500 hover:bg-red-50"
+          >
             <Trash2 className="h-4 w-4" />
           </Button>
 
@@ -198,17 +248,31 @@ export function VoiceMessageInput({ isLoadingAny, userId, setMessages, conversat
           {!audioBlob && (
             <Button
               size="icon"
-              className={`h-14 w-14 rounded-full transition-all duration-200 ${recordingState === "recording" ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-blue-500 hover:bg-blue-600"}`}
+              className={`h-14 w-14 rounded-full transition-all duration-200 ${
+                recordingState === "recording"
+                  ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                  : "bg-blue-500 hover:bg-blue-600"
+              }`}
               onClick={handleVoiceRecord}
               disabled={isLoadingAny}
             >
-              {recordingState === "recording" ? <Pause className="h-6 w-6 text-white" /> : <Mic className="h-6 w-6 text-white" />}
+              {recordingState === "recording" ? (
+                <Pause className="h-6 w-6 text-white" />
+              ) : (
+                <Mic className="h-6 w-6 text-white" />
+              )}
             </Button>
           )}
 
           {/* Stop Button */}
           {(recordingState === "recording" || recordingState === "paused") && (
-            <Button variant="outline" size="icon" onClick={handleStopRecording} disabled={isLoadingAny} className="h-10 w-10 rounded-full border-slate-300 text-slate-600 hover:bg-slate-50">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleStopRecording}
+              disabled={isLoadingAny}
+              className="h-10 w-10 rounded-full border-slate-300 text-slate-600 hover:bg-slate-50"
+            >
               <Square className="h-4 w-4" />
             </Button>
           )}
@@ -220,7 +284,11 @@ export function VoiceMessageInput({ isLoadingAny, userId, setMessages, conversat
               size="icon"
               onClick={handlePlayPreview}
               disabled={isLoadingAny}
-              className={`h-10 w-10 rounded-full transition-all duration-200 ${isPlayingPreview ? "border-blue-500 bg-blue-50 text-blue-600" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
+              className={`h-10 w-10 rounded-full transition-all duration-200 ${
+                isPlayingPreview
+                  ? "border-blue-500 bg-blue-50 text-blue-600"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
+              }`}
             >
               {isPlayingPreview ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>

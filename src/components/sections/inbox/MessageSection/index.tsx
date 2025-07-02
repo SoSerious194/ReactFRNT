@@ -21,7 +21,10 @@ const SCROLL_DEBOUNCE_MS = 150;
 const MESSAGE_GROUP_TIME_THRESHOLD = 5 * 60 * 1000;
 
 // Message grouping utility
-const shouldGroupWithPrevious = (currentMessage: MessageContentType, previousMessage: MessageContentType | undefined): boolean => {
+const shouldGroupWithPrevious = (
+  currentMessage: MessageContentType,
+  previousMessage: MessageContentType | undefined
+): boolean => {
   if (!previousMessage) return false;
 
   if (currentMessage.sender_id !== previousMessage.sender_id) return false;
@@ -32,55 +35,26 @@ const shouldGroupWithPrevious = (currentMessage: MessageContentType, previousMes
   return timeDiff <= MESSAGE_GROUP_TIME_THRESHOLD;
 };
 
-export default function MessageSection({ client, conversationId, userId }: { client: ClientType; conversationId: string; userId: string }) {
-  // Memoize supabase client to prevent recreating on every render
+export default function MessageSection({
+  client,
+  conversationId,
+  userId,
+}: {
+  client: ClientType;
+  conversationId: string;
+  userId: string;
+}) {
   const supabase = useMemo(() => createClient(), []);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const previousScrollHeight = useRef(0);
-  
+
   const shouldScrollToBottom = useRef(true);
-  
+
   const { messages, setMessages, loadMoreMessages, pagination } = useMessages(conversationId);
 
-  
-  const { containerRef, isNearBottom, checkScrollPosition } = useScrollPosition();
-
-  // Utility functions
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
-  }, []);
-
-  // Handle scroll event (non-debounced version)
-  const handleScroll = useMemo(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-
-      timeoutId = setTimeout(() => {
-        const container = containerRef.current;
-        if (!container || pagination.isLoading || !pagination.hasMore) return;
-
-        checkScrollPosition();
-
-        if (container.scrollTop <= SCROLL_THRESHOLD) {
-          previousScrollHeight.current = container.scrollHeight;
-          loadMoreMessages();
-        }
-      }, SCROLL_DEBOUNCE_MS);
-    };
-  }, [loadMoreMessages, pagination.isLoading, pagination.hasMore, checkScrollPosition]);
-
-  useEffect(() => {
-    if (pagination.isLoading || !previousScrollHeight.current || !containerRef.current) return;
-
-    const container = containerRef.current;
-    const newScrollTop = container.scrollHeight - previousScrollHeight.current + container.scrollTop;
-    container.scrollTop = newScrollTop;
-    previousScrollHeight.current = 0;
-  }, [pagination.isLoading]);
+  const { containerRef, messagesEndRef, isNearBottom, handleScroll, scrollToBottom } = useScrollPosition({
+    loadMoreMessages,
+    isLoading: pagination.isLoading,
+    hasMore: pagination.hasMore,
+  });
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -117,16 +91,13 @@ export default function MessageSection({ client, conversationId, userId }: { cli
         (payload) => {
           const newMessage = payload.new as MessageContentType;
 
-          // Avoid duplicate messages from optimistic updates
           setMessages((prev) => {
             const exists = prev.some((msg) => msg.id === newMessage.id);
             if (exists) return prev;
 
-            // Remove any temporary messages with same content
             const filtered = prev.filter((msg) => {
-              // Keep the message if it's NOT a temporary message that matches our criteria
               if (!msg.id.startsWith("temp-")) {
-                return true; // Keep all non-temporary messages
+                return true;
               }
 
               return msg.content !== newMessage.content && msg.file_path !== newMessage.file_path;
@@ -153,7 +124,7 @@ export default function MessageSection({ client, conversationId, userId }: { cli
   const renderMessage = (message: MessageContentType, index: number) => {
     const isMe = message.sender_id === userId;
     const isOptimistic = message.id.startsWith("temp-");
-    
+
     const isGrouped = shouldGroupWithPrevious(message, messages[index - 1]);
     const showMessageHeader = !isGrouped;
     const messageSpacing = isGrouped ? "mt-5" : "mt-8";
@@ -161,14 +132,25 @@ export default function MessageSection({ client, conversationId, userId }: { cli
     return (
       <div
         key={message.id + message.created_at}
-        className={cn("flex", messageSpacing, isMe && "justify-end", isOptimistic && "opacity-70", index === 0 && "mt-2", index === messages.length - 1 && "mb-6")}
+        className={cn(
+          "flex",
+          messageSpacing,
+          isMe && "justify-end",
+          isOptimistic && "opacity-70",
+          index === 0 && "mt-2",
+          index === messages.length - 1 && "mb-6"
+        )}
       >
         {/* Left avatar */}
         {!isMe && (
           <div className="mr-3">
             {showMessageHeader ? (
               <Avatar className="h-10 w-10">
-                <img src={client?.profile_image_url || "https://c.animaapp.com/mbtb1be13lPm2M/img/img-4.png"} alt="Sender" className="h-full w-full object-cover" />
+                <img
+                  src={client?.profile_image_url || "https://c.animaapp.com/mbtb1be13lPm2M/img/img-4.png"}
+                  alt="Sender"
+                  className="h-full w-full object-cover"
+                />
               </Avatar>
             ) : (
               <div className="h-10 w-10" />
@@ -195,7 +177,11 @@ export default function MessageSection({ client, conversationId, userId }: { cli
           <div className="ml-3">
             {showMessageHeader ? (
               <Avatar className="h-10 w-10">
-                <img src="https://c.animaapp.com/mbtb1be13lPm2M/img/img-10.png" alt="You" className="h-full w-full object-cover" />
+                <img
+                  src="https://c.animaapp.com/mbtb1be13lPm2M/img/img-10.png"
+                  alt="You"
+                  className="h-full w-full object-cover"
+                />
               </Avatar>
             ) : (
               <div className="h-10 w-10" />

@@ -1,17 +1,21 @@
-import { Avatar } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { ClientType } from '@/types/client';
-import { PhoneIcon, UserIcon, VideoIcon } from 'lucide-react';
-import { MoreHorizontalIcon } from 'lucide-react';
-import React from 'react'
+import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { ClientType } from "@/types/client";
+import { PhoneIcon, UserIcon, VideoIcon } from "lucide-react";
+import { MoreHorizontalIcon } from "lucide-react";
+import React from "react";
 
-const MessageHeaderSection = ({client}: {client: ClientType}) => {
+const MessageHeaderSection = ({ client }: { client: ClientType }) => {
   return (
     <header className="flex items-center justify-between p-6 bg-white border-b" style={{ minHeight: 97 }}>
       <div className="flex items-center">
         {client?.profile_image_url && (
           <Avatar className="w-12 h-12">
-            <img className="w-full h-full object-cover" alt="Profile" src={client?.profile_image_url || "https://c.animaapp.com/mbtb1be13lPm2M/img/frame-2.svg"} />
+            <img
+              className="w-full h-full object-cover"
+              alt="Profile"
+              src={client?.profile_image_url || "https://c.animaapp.com/mbtb1be13lPm2M/img/frame-2.svg"}
+            />
           </Avatar>
         )}
 
@@ -38,6 +42,6 @@ const MessageHeaderSection = ({client}: {client: ClientType}) => {
       </div>
     </header>
   );
-}
+};
 
-export default MessageHeaderSection
+export default MessageHeaderSection;

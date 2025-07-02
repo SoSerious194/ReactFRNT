@@ -63,7 +63,12 @@ export const useMessages = (conversationId: string) => {
         const from = pageNumber * CONFIG.MESSAGES_PER_PAGE;
         const to = from + CONFIG.MESSAGES_PER_PAGE - 1;
 
-        const { data, error, count } = await supabase.from("messages").select("*", { count: "exact" }).eq("conversation_id", conversationId).order("created_at", { ascending: false }).range(from, to);
+        const { data, error, count } = await supabase
+          .from("messages")
+          .select("*", { count: "exact" })
+          .eq("conversation_id", conversationId)
+          .order("created_at", { ascending: false })
+          .range(from, to);
 
         // Check if this request is still the current one and component is mounted
         if (!isMountedRef.current || currentRequestRef.current !== requestId) {
