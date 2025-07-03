@@ -58,8 +58,8 @@ export function VoiceMessageInput({
   const handleSendVoice = useCallback(async () => {
     if (!canSendVoice || !audioBlob) return;
 
-    const fileName = `voice_${getFileName()}.webm`;
-    const filePath = `${conversationId}/${fileName}`;
+    const { fileName, uniqueId } = getFileName();
+    const filePath = `${conversationId}/${uniqueId}`;
 
     const optimisticMessage: MessageContentType = {
       id: `temp-${Date.now()}`,

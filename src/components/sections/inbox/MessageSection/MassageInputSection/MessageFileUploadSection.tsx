@@ -259,8 +259,8 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
       const optimisticMessages: MessageContentType[] = [];
 
       for (const file of selectedFiles) {
-        const fileName = getFileName(file);
-        const filePath = conversationId + "/" + fileName;
+        const { fileName, uniqueId } = getFileName(file);
+        const filePath = conversationId + "/" + uniqueId;
 
         optimisticMessages.push({
           id: `temp-${Date.now() + Math.random()}`,
