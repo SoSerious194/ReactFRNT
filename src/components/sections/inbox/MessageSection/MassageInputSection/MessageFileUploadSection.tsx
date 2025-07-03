@@ -1,12 +1,14 @@
 import React, { useRef, useState, useEffect, RefObject, SetStateAction, Dispatch } from "react";
-import { FileText, X, Upload, Image, Volume2, Video, Check } from "lucide-react";
+import { FileText, X, Upload, Image, Volume2, Video, Check, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { toast } from "react-hot-toast";
 import { getFileName } from "@/lib/helper";
 import { uploadFiles } from "@/lib/upload";
 import { BUCKET_NAMES, MESSAGE_TYPES } from "@/lib/constant";
 import { sendMediaMessage } from "@/app/inbox/@messages/action";
 import { MessageContentType } from "@/types";
+
 // File type configurations with icons
 const ACCEPTED_FILE_TYPES = {
   documents: {
@@ -34,7 +36,8 @@ const ACCEPTED_FILE_TYPES = {
     color: "text-red-600",
   },
 };
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
 
 interface FileUploadDialogProps {
   open: boolean;
@@ -45,6 +48,11 @@ interface FileUploadDialogProps {
   setMessages: Dispatch<SetStateAction<MessageContentType[]>>;
   shouldScrollToBottom: RefObject<boolean>;
   isNearBottom: boolean;
+}
+
+interface FileValidationResult {
+  valid: boolean;
+  errors: string[];
 }
 
 const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
@@ -75,11 +83,59 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
     };
   }, [selectedFiles]);
 
+  // Clear files when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedFiles([]);
+    }
+  }, [open]);
+
   // Validate file type
   const validateFileType = (file: File, category: keyof typeof ACCEPTED_FILE_TYPES): boolean => {
     const allowedTypes = ACCEPTED_FILE_TYPES[category].types.split(",").map((type) => type.trim());
     const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
     return allowedTypes.includes(fileExtension);
+  };
+
+  // Validate file size
+  const validateFileSize = (file: File): boolean => {
+    return file.size <= MAX_FILE_SIZE;
+  };
+
+  // Comprehensive file validation
+  const validateFiles = (files: File[]): FileValidationResult => {
+    const errors: string[] = [];
+    const validFiles: File[] = [];
+
+    files.forEach((file) => {
+      // Check file type
+      if (!validateFileType(file, activeTab)) {
+        errors.push(`"${file.name}" is not a supported ${activeTab} file type.`);
+        return;
+      }
+
+      // Check file size
+      if (!validateFileSize(file)) {
+        errors.push(`"${file.name}" exceeds the 5MB size limit.`);
+        return;
+      }
+
+      // Check for duplicates
+      const isDuplicate = selectedFiles.some(
+        (existingFile) => existingFile.name === file.name && existingFile.size === file.size
+      );
+      if (isDuplicate) {
+        errors.push(`"${file.name}" is already selected.`);
+        return;
+      }
+
+      validFiles.push(file);
+    });
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
   };
 
   // Format file size
@@ -91,13 +147,31 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  // Handle file selection
+  // Handle file selection with validation
   const handleFileSelection = (files: FileList | File[]) => {
     const fileArray = Array.from(files);
-    const validFiles = fileArray.filter((file) => validateFileType(file, activeTab));
+    const validation = validateFiles(fileArray);
+
+    const { length: errorCount } = validation.errors;
+
+    if (errorCount > 0) {
+      toast.error(
+        errorCount === 1
+          ? "The selected file exceeds the 5 MB size limit."
+          : `${errorCount} files exceed the 5 MB size limit.`
+      );
+    }
+    // Add only valid files
+    const validFiles = fileArray.filter(
+      (file) =>
+        validateFileType(file, activeTab) &&
+        validateFileSize(file) &&
+        !selectedFiles.some((existing) => existing.name === file.name && existing.size === file.size)
+    );
 
     if (validFiles.length > 0) {
       setSelectedFiles((prev) => [...prev, ...validFiles]);
+      toast.success(`${validFiles.length} file${validFiles.length !== 1 ? "s" : ""} added successfully`);
     }
   };
 
@@ -130,7 +204,9 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
 
   // Remove file from selection
   const removeFile = (index: number) => {
+    const fileName = selectedFiles[index].name;
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    toast.success(`"${fileName}" removed`);
   };
 
   // Handle tab change
@@ -142,12 +218,26 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
     }
   };
 
-  // Handle submit
+  // Handle submit with better error handling
   const handleSubmit = async () => {
+    if (selectedFiles.length === 0) {
+      toast.error("Please select at least one file to upload.");
+      return;
+    }
+
+    // Check for oversized files
+    const oversizedFiles = selectedFiles.filter((file) => file.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      toast.error(`Some files exceed the 5MB limit: ${oversizedFiles.map((f) => f.name).join(", ")}`);
+      return;
+    }
+
     setIsSubmitting(true);
+
     try {
       let bucketName;
       let messageType;
+
       if (activeTab === "images") {
         bucketName = BUCKET_NAMES.CONVERSATION_IMAGES;
         messageType = MESSAGE_TYPES.IMAGE;
@@ -165,12 +255,11 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
         messageType = MESSAGE_TYPES.TEXT;
       }
 
-      const files = [];
+      const files: { file: File; filePath: string; fileName: string }[] = [];
       const optimisticMessages: MessageContentType[] = [];
 
       for (const file of selectedFiles) {
         const fileName = getFileName(file);
-
         const filePath = conversationId + "/" + fileName;
 
         optimisticMessages.push({
@@ -190,28 +279,60 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
         });
       }
 
+      // Add optimistic messages
       setMessages((prev) => [...prev, ...optimisticMessages]);
 
+      // Show upload progress toast
+      toast.loading(`Uploading ${selectedFiles.length} file${selectedFiles.length !== 1 ? "s" : ""}...`, {
+        id: "file-upload",
+      });
+
+      // Upload files
       const uploadedFiles = await uploadFiles(files, bucketName);
 
+      if (!uploadedFiles.success) {
+        // Remove optimistic messages if upload fails
+        setMessages((prev) => prev.filter((msg) => !optimisticMessages.some((om) => om.id === msg.id)));
+        toast.error(uploadedFiles.message || "Failed to upload files", { id: "file-upload" });
+        return;
+      }
+
+      // Send media messages
       const sendMediaPromises = files.map((file) => {
         return sendMediaMessage(conversationId, file.filePath, file.fileName, messageType);
       });
 
       const results = await Promise.all(sendMediaPromises);
 
-      results.forEach((result) => {
+      // Handle results and remove optimistic messages
+      const failedUploads: string[] = [];
+      results.forEach((result, index) => {
         if (result.success) {
-          setMessages((prev) =>
-            prev.filter((msg) => msg.id !== optimisticMessages.find((om) => om.file_path === result?.data?.file_path)?.id)
-          );
+          setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessages[index]?.id));
+        } else {
+          failedUploads.push(files[index].fileName);
+          // Remove failed optimistic message
+          setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessages[index]?.id));
         }
       });
 
+      if (failedUploads.length > 0) {
+        toast.error(`Failed to send: ${failedUploads.join(", ")}`, { id: "file-upload" });
+        return;
+      }
+
+      // Success
+      toast.success(`${selectedFiles.length} file${selectedFiles.length !== 1 ? "s" : ""} sent successfully!`, {
+        id: "file-upload",
+      });
       setSelectedFiles([]);
       onClose();
     } catch (error) {
       console.error("Error in handleSubmit:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "An unexpected error occurred while uploading files. Please try again.";
+
+      toast.error(errorMessage, { id: "file-upload" });
     } finally {
       setIsSubmitting(false);
     }
@@ -226,12 +347,15 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
   // Render file preview
   const renderFilePreview = (file: File, index: number) => {
     const fileUrl = URL.createObjectURL(file);
+    const isOversized = file.size > MAX_FILE_SIZE;
 
     if (file.type.startsWith("image/")) {
       return (
         <div
           key={index}
-          className="relative group bg-white border border-gray-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-all duration-200"
+          className={`relative group bg-white border rounded-xl p-3 shadow-sm hover:shadow-md transition-all duration-200 ${
+            isOversized ? "border-red-300 bg-red-50" : "border-gray-200"
+          }`}
         >
           <div className="relative overflow-hidden rounded-lg">
             <img
@@ -241,6 +365,11 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
               onLoad={() => URL.revokeObjectURL(fileUrl)}
             />
             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200"></div>
+            {isOversized && (
+              <div className="absolute inset-0 bg-red-500 bg-opacity-20 flex items-center justify-center">
+                <AlertCircle className="text-red-600" size={24} />
+              </div>
+            )}
           </div>
           <button
             type="button"
@@ -250,8 +379,8 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
             <X size={14} />
           </button>
           <div className="mt-2">
-            <p className="text-xs font-medium text-gray-800 truncate">{file.name}</p>
-            <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+            <p className={`text-xs font-medium truncate ${isOversized ? "text-red-700" : "text-gray-800"}`}>{file.name}</p>
+            <p className={`text-xs ${isOversized ? "text-red-600" : "text-gray-500"}`}>{formatFileSize(file.size)}</p>
           </div>
         </div>
       );
@@ -262,15 +391,22 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
     return (
       <div
         key={index}
-        className="relative flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
+        className={`relative flex items-center gap-3 p-3 bg-white border rounded-xl shadow-sm hover:shadow-md transition-all duration-200 ${
+          isOversized ? "border-red-300 bg-red-50" : "border-gray-200"
+        }`}
       >
-        <div className={`p-2 rounded-lg bg-gray-50 ${ACCEPTED_FILE_TYPES[activeTab].color}`}>
+        <div
+          className={`p-2 rounded-lg ${isOversized ? "bg-red-100" : "bg-gray-50"} ${
+            isOversized ? "text-red-600" : ACCEPTED_FILE_TYPES[activeTab].color
+          }`}
+        >
           <IconComponent size={20} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800 truncate">{file.name}</p>
-          <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+          <p className={`text-sm font-medium truncate ${isOversized ? "text-red-700" : "text-gray-800"}`}>{file.name}</p>
+          <p className={`text-xs ${isOversized ? "text-red-600" : "text-gray-500"}`}>{formatFileSize(file.size)}</p>
         </div>
+        {isOversized && <AlertCircle className="text-red-500" size={18} />}
         <button
           type="button"
           onClick={() => removeFile(index)}
@@ -337,10 +473,11 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
               {isDragging ? "Drop your files here" : "Choose files to upload"}
             </h3>
             <p className="text-sm text-gray-600 mb-1">Drag and drop files here, or click to browse</p>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full mb-2">
               <activeConfig.icon size={14} className={activeConfig.color} />
               <span className="text-xs font-medium text-gray-700">{activeConfig.types}</span>
             </div>
+            <p className="text-xs text-gray-500">Maximum file size: 5MB</p>
           </div>
 
           {/* Hidden File Input */}
@@ -379,8 +516,8 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={selectedFiles.length === 0 || isSubmitting}
-              className="px-6 bg-green-600 hover:bg-green-700 text-white"
+              disabled={selectedFiles.length === 0 || isSubmitting || selectedFiles.some((f) => f.size > MAX_FILE_SIZE)}
+              className="px-6 bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400"
             >
               {isSubmitting ? (
                 <div className="flex items-center gap-2">
