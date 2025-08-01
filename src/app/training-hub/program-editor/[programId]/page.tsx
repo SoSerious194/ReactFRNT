@@ -31,8 +31,9 @@ export default function ProgramEditorPage() {
       const { data: days, error: daysError } = await supabase
         .from("program_days")
         .select("day, workout_id, is_rest_day, notes, workouts (id, name, duration, difficulty)")
-
-        .eq("program_id", programId);
+        .eq("program_id", programId)
+        .order("day", { ascending: true })
+        .order("position", { ascending: true });
 
       if (daysError) {
         console.error("Error fetching days:", daysError);
@@ -41,20 +42,22 @@ export default function ProgramEditorPage() {
 
       // 3. Convert day data into format builder wants
       const dayWorkouts: { [key: number]: any[] } = {};
+      let maxDay = 0;
+      
       days.forEach(day => {
         if (!dayWorkouts[day.day]) {
           dayWorkouts[day.day] = [];
         }
-        if (day.workouts) {
+        if (day.workouts && !day.is_rest_day) {
           dayWorkouts[day.day].push(day.workouts);
         }
-        
+        maxDay = Math.max(maxDay, day.day);
       });
 
       setProgramData({
         id: program.id,
         name: program.name,
-        scheduleLength: program.schedule_length ?? 7, // fallback
+        scheduleLength: maxDay || 7, // Calculate from actual days or default to 7
         dayWorkouts,
       });
 
