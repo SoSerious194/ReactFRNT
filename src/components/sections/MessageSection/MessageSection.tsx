@@ -16,7 +16,7 @@ export default function MessageSection() {
 
   if (!selectedUser) {
     return (
-      <div className="flex flex-col h-full w-full border-l bg-white">
+      <div className="flex flex-col h-full w-full bg-white overflow-hidden">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -33,7 +33,7 @@ export default function MessageSection() {
 
   if (!streamClient) {
     return (
-      <div className="flex flex-col h-full w-full border-l bg-white">
+      <div className="flex flex-col h-full w-full bg-white overflow-hidden">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-4"></div>
@@ -46,7 +46,7 @@ export default function MessageSection() {
 
   if (!streamClient.userID) {
     return (
-      <div className="flex flex-col h-full w-full border-l bg-white">
+      <div className="flex flex-col h-full w-full bg-white overflow-hidden">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -63,7 +63,7 @@ export default function MessageSection() {
 
   if (!selectedChannel) {
     return (
-      <div className="flex flex-col h-full w-full border-l bg-white">
+      <div className="flex flex-col h-full w-full bg-white overflow-hidden">
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-4"></div>
@@ -75,7 +75,7 @@ export default function MessageSection() {
   }
 
   return (
-    <div className="flex flex-col h-full w-full border-l bg-white">
+    <div className="flex flex-col h-full w-full bg-white overflow-hidden">
       <Chat client={streamClient} theme="messaging light">
         <Channel channel={selectedChannel}>
           <Window>
