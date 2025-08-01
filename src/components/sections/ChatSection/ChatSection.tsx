@@ -64,57 +64,62 @@ export default function ChatSection() {
         </h3>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
+      <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
         {/* User Profile */}
-        <Card className="p-4 mb-4">
-          <div className="flex items-center mb-3">
-            <Avatar className="h-12 w-12 mr-3">
+        <Card className="p-4 border-gray-200 shadow-sm">
+          <div className="flex items-center">
+            <Avatar className="h-12 w-12 mr-3 border-2 border-gray-100">
               <AvatarImage
                 src={selectedUser.profile_image_url || undefined}
                 alt={selectedUser.full_name || "User"}
               />
-              <AvatarFallback>
+              <AvatarFallback className="bg-gray-100 text-gray-600 font-medium">
                 {selectedUser.full_name?.charAt(0) ||
                   selectedUser.email?.charAt(0) ||
                   "U"}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <h4 className="font-medium text-gray-900">
+            <div className="flex-1 min-w-0">
+              <h4 className="font-semibold text-gray-900 text-base leading-tight">
                 {selectedUser.full_name || selectedUser.email || "Unknown User"}
               </h4>
-              <p className="text-sm text-gray-500">{selectedUser.email}</p>
+              <p className="text-sm text-gray-500 truncate">
+                {selectedUser.email}
+              </p>
             </div>
           </div>
-
-          {selectedUser.last_app_open && (
-            <div className="text-sm text-gray-600">
-              Last active:{" "}
-              {new Date(selectedUser.last_app_open).toLocaleDateString()}
-            </div>
-          )}
         </Card>
 
         {/* Fitness Data */}
         {loading ? (
-          <div className="text-center py-4">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto mb-2"></div>
-            <p className="text-sm text-gray-500">Loading fitness data...</p>
-          </div>
+          <Card className="p-6 border-gray-200 shadow-sm">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-3"></div>
+              <p className="text-sm text-gray-500">Loading fitness data...</p>
+            </div>
+          </Card>
         ) : fitnessData ? (
-          <div className="space-y-4">
+          <>
             {/* Recent Workouts */}
-            <Card className="p-4">
-              <h5 className="font-medium text-gray-900 mb-3">
-                Recent Workouts
-              </h5>
+            <Card className="p-4 border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h5 className="font-semibold text-gray-900 text-base">
+                  Recent Workouts
+                </h5>
+                <Badge variant="secondary" className="text-xs">
+                  {fitnessData.completedWorkouts.length}
+                </Badge>
+              </div>
               {fitnessData.completedWorkouts.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {fitnessData.completedWorkouts
                     .slice(0, 3)
                     .map((workout, index) => (
-                      <div key={index} className="text-sm">
-                        <div className="font-medium text-gray-700">
+                      <div
+                        key={index}
+                        className="border-l-2 border-green-500 pl-3"
+                      >
+                        <div className="font-medium text-gray-900 text-sm">
                           Day {workout.day} -{" "}
                           {workout.completed_date
                             ? new Date(
@@ -123,85 +128,109 @@ export default function ChatSection() {
                             : "No date"}
                         </div>
                         {workout.notes && (
-                          <div className="text-gray-500 text-xs">
-                            {workout.notes}
+                          <div className="text-gray-500 text-xs mt-1 italic">
+                            "{workout.notes}"
                           </div>
                         )}
                       </div>
                     ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">No completed workouts</p>
+                <p className="text-sm text-gray-500 italic">
+                  No completed workouts
+                </p>
               )}
             </Card>
 
             {/* Exercise Logs */}
-            <Card className="p-4">
-              <h5 className="font-medium text-gray-900 mb-3">
-                Recent Exercises
-              </h5>
+            <Card className="p-4 border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h5 className="font-semibold text-gray-900 text-base">
+                  Recent Exercises
+                </h5>
+                <Badge variant="secondary" className="text-xs">
+                  {fitnessData.exerciseLogs.length}
+                </Badge>
+              </div>
               {fitnessData.exerciseLogs.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {fitnessData.exerciseLogs.slice(0, 3).map((log, index) => (
-                    <div key={index} className="text-sm">
-                      <div className="font-medium text-gray-700">
+                    <div
+                      key={index}
+                      className="border-l-2 border-blue-500 pl-3"
+                    >
+                      <div className="font-medium text-gray-900 text-sm">
                         Set {log.set_number} - {log.reps} reps
                       </div>
                       {log.weight && (
-                        <div className="text-gray-500 text-xs">
+                        <div className="text-gray-600 text-xs font-medium">
                           {log.weight} lbs
                         </div>
                       )}
                       {log.notes && (
-                        <div className="text-gray-500 text-xs">{log.notes}</div>
+                        <div className="text-gray-500 text-xs mt-1 italic">
+                          "{log.notes}"
+                        </div>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">No exercise logs</p>
+                <p className="text-sm text-gray-500 italic">No exercise logs</p>
               )}
             </Card>
 
             {/* Stats */}
-            <Card className="p-4">
-              <h5 className="font-medium text-gray-900 mb-3">Stats</h5>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <div className="text-gray-500">Workouts</div>
-                  <div className="font-medium text-gray-900">
+            <Card className="p-4 border-gray-200 shadow-sm">
+              <h5 className="font-semibold text-gray-900 text-base mb-3">
+                Stats
+              </h5>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
                     {fitnessData.completedWorkouts.length}
                   </div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">
+                    Workouts
+                  </div>
                 </div>
-                <div>
-                  <div className="text-gray-500">Exercises</div>
-                  <div className="font-medium text-gray-900">
+                <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">
                     {fitnessData.exerciseLogs.length}
+                  </div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">
+                    Exercises
                   </div>
                 </div>
                 {selectedUser.app_open_streak && (
-                  <div>
-                    <div className="text-gray-500">Streak</div>
-                    <div className="font-medium text-gray-900">
-                      {selectedUser.app_open_streak} days
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {selectedUser.app_open_streak}
+                    </div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide">
+                      Day Streak
                     </div>
                   </div>
                 )}
                 {selectedUser.habit_streak && (
-                  <div>
-                    <div className="text-gray-500">Habit Streak</div>
-                    <div className="font-medium text-gray-900">
-                      {selectedUser.habit_streak} days
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {selectedUser.habit_streak}
+                    </div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wide">
+                      Habit Streak
                     </div>
                   </div>
                 )}
               </div>
             </Card>
-          </div>
+          </>
         ) : (
-          <div className="text-center py-4">
-            <p className="text-sm text-gray-500">No fitness data available</p>
-          </div>
+          <Card className="p-6 border-gray-200 shadow-sm">
+            <div className="text-center text-gray-500">
+              <p className="text-sm">No fitness data available</p>
+            </div>
+          </Card>
         )}
       </div>
     </div>

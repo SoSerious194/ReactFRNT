@@ -100,9 +100,9 @@ export default function MemberListSection() {
                   <div className="font-normal text-base text-gray-900 leading-6 truncate">
                     {user.full_name || user.email || "Unknown User"}
                   </div>
-                  {user.last_app_open && (
+                  {user.email && (
                     <div className="text-xs text-gray-500">
-                      Last active: {formatTime(user.last_app_open)}
+                      Email: {user.email}
                     </div>
                   )}
                 </div>
