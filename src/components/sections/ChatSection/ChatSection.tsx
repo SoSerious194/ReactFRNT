@@ -1,5 +1,5 @@
 'use client';
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Avatar,
   AvatarFallback,
@@ -7,131 +7,173 @@ import {
 } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group";
+import { useChat } from "@/lib/chatContext";
+import { ChatServices } from "@/lib/chatServices";
 
-// Member data for mapping
-const members = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    image: "https://c.animaapp.com/mbtb1be13lPm2M/img/img-4.png",
-    status: "online",
-    type: "1:1 Client",
-    badgeColor: "blue",
-  },
-  {
-    id: 2,
-    name: "Mike Rodriguez",
-    image: "https://c.animaapp.com/mbtb1be13lPm2M/img/img-5.png",
-    status: "online",
-    type: "Paid Member",
-    badgeColor: "green",
-  },
-  {
-    id: 3,
-    name: "Emily Chen",
-    image: "https://c.animaapp.com/mbtb1be13lPm2M/img/img-6.png",
-    status: "offline",
-    type: "Groupie",
-    badgeColor: "purple",
-  },
-  {
-    id: 4,
-    name: "David Wilson",
-    image: "https://c.animaapp.com/mbtb1be13lPm2M/img/img-7.png",
-    status: "online",
-    type: "Paid Member",
-    badgeColor: "green",
-  },
-  {
-    id: 5,
-    name: "Lisa Thompson",
-    image: "https://c.animaapp.com/mbtb1be13lPm2M/img/img-8.png",
-    status: "offline",
-    type: "1:1 Client",
-    badgeColor: "blue",
-  },
-  {
-    id: 6,
-    name: "James Parker",
-    image: "https://c.animaapp.com/mbtb1be13lPm2M/img/img-9.png",
-    status: "online",
-    type: "Groupie",
-    badgeColor: "purple",
-  },
-];
+interface UserFitnessData {
+  user: any;
+  completedWorkouts: any[];
+  exerciseLogs: any[];
+}
 
 export default function ChatSection() {
-  return (
-    <div className="w-80 h-full border-l border-solid">
-      <div className="border-b border-solid">
-        <div className="p-6 pb-0">
-          <ToggleGroup
-            type="single"
-            defaultValue="all"
-            className="bg-gray-100 rounded-lg h-12 w-full flex"
-          >
-            <ToggleGroupItem
-              value="all"
-              className="h-12 flex-1 rounded-md text-base data-[state=on]:bg-white data-[state=on]:text-green-700 data-[state=on]:font-bold text-gray-600"
-            >
-              <span className="[font-family:'Inter',Helvetica]">
-                Members
-              </span>
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="online"
-              className="h-12 flex-1 rounded-md text-base data-[state=on]:bg-white data-[state=on]:text-green-700 data-[state=on]:font-bold text-gray-600"
-            >
-              <span className="[font-family:'Inter',Helvetica]">
-                Forums
-              </span>
-            </ToggleGroupItem>
-          </ToggleGroup>
+  const { selectedUser } = useChat();
+  const [fitnessData, setFitnessData] = useState<UserFitnessData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (selectedUser) {
+      loadUserFitnessData();
+    } else {
+      setFitnessData(null);
+    }
+  }, [selectedUser]);
+
+  const loadUserFitnessData = async () => {
+    if (!selectedUser) return;
+    
+    try {
+      setLoading(true);
+      const data = await ChatServices.getUserFitnessData(selectedUser.id);
+      setFitnessData(data);
+    } catch (error) {
+      console.error('Error loading user fitness data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!selectedUser) {
+    return (
+      <div className="w-80 h-full border-l border-solid">
+        <div className="p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Client Information</h3>
+          <div className="text-center text-gray-500">
+            <p>Select a client to view their information</p>
+          </div>
         </div>
       </div>
-      <div className="pt-4">
-        {members.map((member) => (
-          <Card
-            key={member.id}
-            className="mx-4 mb-4 rounded-lg border-0 hover:bg-gray-50 cursor-pointer"
-          >
-            <div className="flex items-center p-3">
-              <div className="relative">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage
-                    src={member.image}
-                    alt={member.name}
-                    className="rounded-full"
-                  />
-                  <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div
-                  className={`absolute w-4 h-4 bottom-0 right-0 ${
-                    member.status === "online" ? "bg-green-500" : "bg-gray-400"
-                  } rounded-full border-2 border-solid border-white`}
-                />
-              </div>
-              <div className="ml-3">
-                <div className="font-medium text-base text-gray-900 [font-family:'Inter',Helvetica]">
-                  {member.name}
-                </div>
-                <Badge
-                  className={`mt-1 bg-${member.badgeColor}-100 text-${member.badgeColor}-800 hover:bg-${member.badgeColor}-100 border-0`}
-                  variant="outline"
-                >
-                  <span className="font-medium text-xs [font-family:'Inter',Helvetica]">
-                    {member.type}
-                  </span>
-                </Badge>
-              </div>
+    );
+  }
+
+  return (
+    <div className="w-80 h-full border-l border-solid">
+      <div className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Client Information</h3>
+        
+        {/* User Profile */}
+        <Card className="p-4 mb-4">
+          <div className="flex items-center mb-3">
+            <Avatar className="h-12 w-12 mr-3">
+              <AvatarImage
+                src={selectedUser.profile_image_url || undefined}
+                alt={selectedUser.full_name || 'User'}
+              />
+              <AvatarFallback>
+                {selectedUser.full_name?.charAt(0) || selectedUser.email?.charAt(0) || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h4 className="font-medium text-gray-900">
+                {selectedUser.full_name || selectedUser.email || 'Unknown User'}
+              </h4>
+              <p className="text-sm text-gray-500">{selectedUser.email}</p>
             </div>
-          </Card>
-        ))}
+          </div>
+          
+          {selectedUser.last_app_open && (
+            <div className="text-sm text-gray-600">
+              Last active: {new Date(selectedUser.last_app_open).toLocaleDateString()}
+            </div>
+          )}
+        </Card>
+
+        {/* Fitness Data */}
+        {loading ? (
+          <div className="text-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500 mx-auto mb-2"></div>
+            <p className="text-sm text-gray-500">Loading fitness data...</p>
+          </div>
+        ) : fitnessData ? (
+          <div className="space-y-4">
+            {/* Recent Workouts */}
+            <Card className="p-4">
+              <h5 className="font-medium text-gray-900 mb-3">Recent Workouts</h5>
+              {fitnessData.completedWorkouts.length > 0 ? (
+                <div className="space-y-2">
+                  {fitnessData.completedWorkouts.slice(0, 3).map((workout, index) => (
+                    <div key={index} className="text-sm">
+                      <div className="font-medium text-gray-700">
+                        Day {workout.day} - {workout.completed_date ? new Date(workout.completed_date).toLocaleDateString() : 'No date'}
+                      </div>
+                      {workout.notes && (
+                        <div className="text-gray-500 text-xs">{workout.notes}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No completed workouts</p>
+              )}
+            </Card>
+
+            {/* Exercise Logs */}
+            <Card className="p-4">
+              <h5 className="font-medium text-gray-900 mb-3">Recent Exercises</h5>
+              {fitnessData.exerciseLogs.length > 0 ? (
+                <div className="space-y-2">
+                  {fitnessData.exerciseLogs.slice(0, 3).map((log, index) => (
+                    <div key={index} className="text-sm">
+                      <div className="font-medium text-gray-700">
+                        Set {log.set_number} - {log.reps} reps
+                      </div>
+                      {log.weight && (
+                        <div className="text-gray-500 text-xs">{log.weight} lbs</div>
+                      )}
+                      {log.notes && (
+                        <div className="text-gray-500 text-xs">{log.notes}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No exercise logs</p>
+              )}
+            </Card>
+
+            {/* Stats */}
+            <Card className="p-4">
+              <h5 className="font-medium text-gray-900 mb-3">Stats</h5>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-gray-500">Workouts</div>
+                  <div className="font-medium text-gray-900">{fitnessData.completedWorkouts.length}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500">Exercises</div>
+                  <div className="font-medium text-gray-900">{fitnessData.exerciseLogs.length}</div>
+                </div>
+                {selectedUser.app_open_streak && (
+                  <div>
+                    <div className="text-gray-500">Streak</div>
+                    <div className="font-medium text-gray-900">{selectedUser.app_open_streak} days</div>
+                  </div>
+                )}
+                {selectedUser.habit_streak && (
+                  <div>
+                    <div className="text-gray-500">Habit Streak</div>
+                    <div className="font-medium text-gray-900">{selectedUser.habit_streak} days</div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-500">No fitness data available</p>
+          </div>
+        )}
       </div>
     </div>
   );
-};
+}
