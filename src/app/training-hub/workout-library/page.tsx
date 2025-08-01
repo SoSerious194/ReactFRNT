@@ -1,15 +1,15 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-import { createClient } from '@/utils/supabase/server';
-import { WorkoutsSection } from '@/components/WorkoutsSection';
+import { createClient } from "@/utils/supabase/server";
+import { WorkoutsSection } from "@/components/WorkoutsSection";
 
 export default async function WorkoutLibraryPage() {
   const supabase = await createClient();
 
   const { data: workouts, error } = await supabase
-    .from('workouts')
-    .select('id, name, difficulty, equipment, duration, lastModified')
-    .order('lastModified', { ascending: false });
+    .from("workouts")
+    .select("id, name, difficulty, equipment, duration, lastModified")
+    .order("lastModified", { ascending: false });
 
   if (error) {
     return (
@@ -20,11 +20,7 @@ export default async function WorkoutLibraryPage() {
   }
 
   if (!workouts || workouts.length === 0) {
-    return (
-      <div className="p-6 text-gray-500">
-        No workouts available yet.
-      </div>
-    );
+    return <div className="p-6 text-gray-500">No workouts available yet.</div>;
   }
 
   return <WorkoutsSection workouts={workouts} />;

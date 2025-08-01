@@ -1,9 +1,17 @@
 import WorkoutBuilderSection from "@/components/WorkoutBuilderSection";
 
-export default function WorkoutBuilderPage() {
+export default async function WorkoutBuilderPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ edit?: string; duplicate?: string }>;
+}) {
+  const params = await searchParams;
   return (
     <div className="h-full">
-      <WorkoutBuilderSection />
+      <WorkoutBuilderSection
+        editWorkoutId={params.edit}
+        duplicateWorkoutId={params.duplicate}
+      />
     </div>
   );
-} 
+}

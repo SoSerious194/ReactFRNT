@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/lib/useAuth";
+import { Tables, TablesInsert, TablesUpdate } from "@/types/database";
+import { useToast } from "@/components/ui/toast";
 import {
   DndContext,
   closestCenter,
@@ -20,6 +23,20 @@ import {
 } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
+// Database types
+type Workout = Tables<"workouts">;
+type WorkoutBlock = Tables<"workout_blocks">;
+type DatabaseExerciseSet = Tables<"exercise_sets">;
+type WorkoutInsert = TablesInsert<"workouts">;
+type WorkoutBlockInsert = TablesInsert<"workout_blocks">;
+type ExerciseSetInsert = TablesInsert<"exercise_sets">;
+type WorkoutUpdate = TablesUpdate<"workouts">;
+type WorkoutBlockUpdate = TablesUpdate<"workout_blocks">;
+type ExerciseSetUpdate = TablesUpdate<"exercise_sets">;
+
+// Supabase client
+const supabase = createClient();
 
 // SVG icon components for use in place of FontAwesome
 const DumbbellIcon = () => (
@@ -284,16 +301,18 @@ type ExerciseFilter = {
   active: boolean;
 };
 
-type SetType = "warmup" | "normal" | "dropset";
+type SetType = "warmup" | "normal" | "dropset" | "burnout";
 
 type ExerciseSet = {
   id: string;
   type: SetType;
   setNumber: number;
-  time: number; // Duration in seconds
   rest: number; // Duration in seconds
+  weight?: string; // Weight for the set
+  reps?: number; // Reps for the set
   exercise?: Exercise; // Optional exercise for the set
   customName?: string; // Custom name for the set
+  notes?: string; // Set name (stored in notes field)
 };
 
 type WorkoutExercise = {
@@ -341,8 +360,16 @@ const sessionArrangement = {
   ],
 };
 
-export default function WorkoutBuilderSection() {
+export default function WorkoutBuilderSection({
+  editWorkoutId,
+  duplicateWorkoutId,
+}: {
+  editWorkoutId?: string;
+  duplicateWorkoutId?: string;
+}) {
   const router = useRouter();
+  const { user } = useAuth();
+  const { addToast } = useToast();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -352,6 +379,17 @@ export default function WorkoutBuilderSection() {
     null
   );
   const [workoutName, setWorkoutName] = useState("Workout Name");
+  const [workoutDifficulty, setWorkoutDifficulty] =
+    useState<string>("Beginner");
+  const [workoutEquipment, setWorkoutEquipment] = useState<string[]>([]);
+  const [workoutDescription, setWorkoutDescription] = useState("");
+  const [workoutCoverPhoto, setWorkoutCoverPhoto] = useState<string | null>(
+    null
+  );
+  const [workoutDuration, setWorkoutDuration] = useState({
+    hours: 0,
+    minutes: 0,
+  });
 
   // DnD sensors
   const sensors = useSensors(
@@ -378,6 +416,8 @@ export default function WorkoutBuilderSection() {
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [openTimePicker, setOpenTimePicker] = useState<string | null>(null);
+  const [isWorkoutDetailsExpanded, setIsWorkoutDetailsExpanded] =
+    useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [timeModalTarget, setTimeModalTarget] = useState<{
     type: "time" | "rest";
@@ -387,18 +427,25 @@ export default function WorkoutBuilderSection() {
   } | null>(null);
   const [customDuration, setCustomDuration] = useState(5);
 
+  // Workout state
+  const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(null);
+  const [workoutBlocks, setWorkoutBlocks] = useState<WorkoutBlock[]>([]);
+  const [exerciseSets, setExerciseSets] = useState<DatabaseExerciseSet[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [loadingWorkout, setLoadingWorkout] = useState(false);
+
   // Duration options in minutes
   const durationOptions = [5, 10, 15, 30, 60];
 
   // Convert seconds to minutes for display
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
-    return `${minutes} min`;
+    return `${minutes} minute${minutes !== 1 ? "s" : ""}`;
   };
 
-  // Parse duration from "X min" format to seconds
+  // Parse duration from "X minute(s)" format to seconds
   const parseDuration = (durationString: string): number => {
-    const minutes = parseInt(durationString.replace(" min", ""));
+    const minutes = parseInt(durationString.replace(/ minute(s)?$/, ""));
     return minutes * 60;
   };
 
@@ -465,6 +512,20 @@ export default function WorkoutBuilderSection() {
     fetchExercises();
   }, []);
 
+  // Load workout for editing if editWorkoutId is provided
+  useEffect(() => {
+    if (editWorkoutId && exercises.length > 0) {
+      loadWorkout(editWorkoutId);
+    }
+  }, [editWorkoutId, exercises]);
+
+  // Load workout for duplication if duplicateWorkoutId is provided
+  useEffect(() => {
+    if (duplicateWorkoutId && exercises.length > 0) {
+      loadWorkoutForDuplication(duplicateWorkoutId);
+    }
+  }, [duplicateWorkoutId, exercises]);
+
   // Filter exercises based on search query
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -481,7 +542,39 @@ export default function WorkoutBuilderSection() {
   // Handle filter change
   const handleFilterChange = (filterLabel: string) => {
     setSelectedFilter(filterLabel);
-    // TODO: Implement actual filtering based on exercise_type or other criteria
+
+    // Implement actual filtering based on exercise_type or other criteria
+    if (filterLabel === "All") {
+      setFilteredExercises(exercises);
+    } else {
+      const filtered = exercises.filter((exercise) => {
+        switch (filterLabel) {
+          case "Strength":
+            return (
+              exercise.exercise_type === "strength" ||
+              exercise.exercise_type === "powerlifting"
+            );
+          case "Cardio":
+            return (
+              exercise.exercise_type === "cardio" ||
+              exercise.exercise_type === "endurance"
+            );
+          case "Mobility":
+            return (
+              exercise.exercise_type === "mobility" ||
+              exercise.exercise_type === "flexibility"
+            );
+          case "Bodyweight":
+            return (
+              exercise.equipment === "bodyweight" ||
+              exercise.exercise_type === "calisthenics"
+            );
+          default:
+            return true;
+        }
+      });
+      setFilteredExercises(filtered);
+    }
   };
 
   // Handle exercise selection from left panel
@@ -524,7 +617,7 @@ export default function WorkoutBuilderSection() {
         id: `we-${Date.now()}`,
         exercise: exercise,
         sets: [],
-        instructions: exercise.instructions || exercise.cues_and_tips || "",
+        instructions: exercise.instructions || "",
       };
 
       setSessions((prev) =>
@@ -549,7 +642,7 @@ export default function WorkoutBuilderSection() {
           id: `we-${Date.now()}`,
           exercise: exercise,
           sets: [],
-          instructions: exercise.instructions || exercise.cues_and_tips || "",
+          instructions: exercise.instructions || "",
         };
 
         setWorkoutExercises((prev) => [...prev, newWorkoutExercise]);
@@ -589,8 +682,9 @@ export default function WorkoutBuilderSection() {
       id: `set-${Date.now()}`,
       type: type,
       setNumber: 1, // This will be overridden by array index
-      time: type === "warmup" ? 30 : 60,
       rest: type === "warmup" ? 0 : 60,
+      weight: "",
+      reps: 0,
     };
 
     setWorkoutExercises((prev) =>
@@ -704,6 +798,93 @@ export default function WorkoutBuilderSection() {
     );
   };
 
+  // Update set notes (set names)
+  const updateSetNotes = (setId: string, notes: string) => {
+    if (!selectedWorkoutExercise) return;
+
+    setWorkoutExercises((prev) =>
+      prev.map((we) =>
+        we.id === selectedWorkoutExercise.id
+          ? {
+              ...we,
+              sets: we.sets.map((set) =>
+                set.id === setId ? { ...set, notes } : set
+              ),
+            }
+          : we
+      )
+    );
+
+    setSelectedWorkoutExercise((prev) =>
+      prev
+        ? {
+            ...prev,
+            sets: prev.sets.map((set) =>
+              set.id === setId ? { ...set, notes } : set
+            ),
+          }
+        : null
+    );
+  };
+
+  // Update set weight
+  const updateSetWeight = (setId: string, weight: string) => {
+    if (!selectedWorkoutExercise) return;
+
+    setWorkoutExercises((prev) =>
+      prev.map((we) =>
+        we.id === selectedWorkoutExercise.id
+          ? {
+              ...we,
+              sets: we.sets.map((set) =>
+                set.id === setId ? { ...set, weight } : set
+              ),
+            }
+          : we
+      )
+    );
+
+    setSelectedWorkoutExercise((prev) =>
+      prev
+        ? {
+            ...prev,
+            sets: prev.sets.map((set) =>
+              set.id === setId ? { ...set, weight } : set
+            ),
+          }
+        : null
+    );
+  };
+
+  // Update set reps
+  const updateSetReps = (setId: string, reps: number) => {
+    if (!selectedWorkoutExercise) return;
+
+    setWorkoutExercises((prev) =>
+      prev.map((we) =>
+        we.id === selectedWorkoutExercise.id
+          ? {
+              ...we,
+              sets: we.sets.map((set) =>
+                set.id === setId ? { ...set, reps } : set
+              ),
+            }
+          : we
+      )
+    );
+
+    setSelectedWorkoutExercise((prev) =>
+      prev
+        ? {
+            ...prev,
+            sets: prev.sets.map((set) =>
+              set.id === setId ? { ...set, reps } : set
+            ),
+          }
+        : null
+    );
+  };
+
   // Time picker helper - converts seconds to MM:SS format
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -724,7 +905,8 @@ export default function WorkoutBuilderSection() {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         openDropdown &&
-        !(event.target as Element).closest(".dropdown-container")
+        !(event.target as Element).closest(".dropdown-container") &&
+        !(event.target as Element).closest(".equipment-dropdown")
       ) {
         setOpenDropdown(null);
       }
@@ -776,8 +958,9 @@ export default function WorkoutBuilderSection() {
       id: `set-${Date.now()}`,
       type: type,
       setNumber: 1, // Default set number for new sets
-      time: type === "warmup" ? 30 : 60,
       rest: type === "warmup" ? 0 : 60,
+      weight: "",
+      reps: 0,
     };
 
     setSessions((prev) =>
@@ -895,6 +1078,88 @@ export default function WorkoutBuilderSection() {
                       ...we,
                       sets: we.sets.map((set) =>
                         set.id === setId ? { ...set, customName } : set
+                      ),
+                    }
+                  : we
+              ),
+            }
+          : session
+      )
+    );
+  };
+
+  const updateSessionExerciseSetWeight = (
+    sessionId: string,
+    exerciseId: string,
+    setId: string,
+    weight: string
+  ) => {
+    setSessions((prev) =>
+      prev.map((session) =>
+        session.id === sessionId
+          ? {
+              ...session,
+              exercises: session.exercises.map((we) =>
+                we.id === exerciseId
+                  ? {
+                      ...we,
+                      sets: we.sets.map((set) =>
+                        set.id === setId ? { ...set, weight } : set
+                      ),
+                    }
+                  : we
+              ),
+            }
+          : session
+      )
+    );
+  };
+
+  const updateSessionExerciseSetReps = (
+    sessionId: string,
+    exerciseId: string,
+    setId: string,
+    reps: number
+  ) => {
+    setSessions((prev) =>
+      prev.map((session) =>
+        session.id === sessionId
+          ? {
+              ...session,
+              exercises: session.exercises.map((we) =>
+                we.id === exerciseId
+                  ? {
+                      ...we,
+                      sets: we.sets.map((set) =>
+                        set.id === setId ? { ...set, reps } : set
+                      ),
+                    }
+                  : we
+              ),
+            }
+          : session
+      )
+    );
+  };
+
+  // Update session exercise set notes (set names)
+  const updateSessionExerciseSetNotes = (
+    sessionId: string,
+    exerciseId: string,
+    setId: string,
+    notes: string
+  ) => {
+    setSessions((prev) =>
+      prev.map((session) =>
+        session.id === sessionId
+          ? {
+              ...session,
+              exercises: session.exercises.map((we) =>
+                we.id === exerciseId
+                  ? {
+                      ...we,
+                      sets: we.sets.map((set) =>
+                        set.id === setId ? { ...set, notes } : set
                       ),
                     }
                   : we
@@ -1027,6 +1292,763 @@ export default function WorkoutBuilderSection() {
     }
   };
 
+  // ===== SUPABASE CRUD OPERATIONS =====
+
+  // Calculate total workout duration and format it
+  // Format manual workout duration
+  const formatWorkoutDuration = (): string => {
+    const { hours, minutes } = workoutDuration;
+    if (hours === 0 && minutes === 0) {
+      return "0 minutes";
+    } else if (hours === 0) {
+      return `${minutes} minute${minutes !== 1 ? "s" : ""}`;
+    } else if (minutes === 0) {
+      return `${hours} hour${hours !== 1 ? "s" : ""}`;
+    } else {
+      return `${hours} hour${hours !== 1 ? "s" : ""} ${minutes} minute${
+        minutes !== 1 ? "s" : ""
+      }`;
+    }
+  };
+
+  // Create a new workout
+  const createWorkout = async (): Promise<string | null> => {
+    if (!user) {
+      console.error("User not authenticated");
+      return null;
+    }
+
+    try {
+      setSaving(true);
+
+      const workoutData: WorkoutInsert = {
+        name: workoutName,
+        coach_id: user.id,
+        lastModified: new Date().toISOString(),
+        duration: formatWorkoutDuration(),
+        difficulty: workoutDifficulty,
+        equipment: workoutEquipment.join(", "),
+      };
+
+      const { data: workout, error } = await supabase
+        .from("workouts")
+        .insert(workoutData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error creating workout:", error);
+        return null;
+      }
+
+      setCurrentWorkout(workout);
+      return workout.id;
+    } catch (error) {
+      console.error("Error creating workout:", error);
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save workout blocks and exercise sets
+  const saveWorkoutStructure = async (workoutId: string) => {
+    if (!user) {
+      console.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      setSaving(true);
+
+      // Convert sessions to workout blocks
+      const blocksToInsert: WorkoutBlockInsert[] = sessions.map(
+        (session, index) => ({
+          workout_id: workoutId,
+          name: session.name,
+          type: session.type,
+          order_index: index,
+        })
+      );
+
+      // Insert workout blocks
+      console.log("Inserting workout blocks:", blocksToInsert);
+      const { data: blocks, error: blocksError } = await supabase
+        .from("workout_blocks")
+        .insert(blocksToInsert)
+        .select();
+
+      if (blocksError) {
+        console.error("Error creating workout blocks:", blocksError);
+        console.error("Blocks that failed to insert:", blocksToInsert);
+        return false;
+      }
+
+      console.log("Successfully inserted workout blocks:", blocks);
+
+      // Convert exercise sets to database format
+      const setsToInsert: ExerciseSetInsert[] = [];
+
+      sessions.forEach((session, sessionIndex) => {
+        const block = blocks?.find((b) => b.order_index === sessionIndex);
+        if (!block) {
+          console.error(`No block found for session index ${sessionIndex}`);
+          return;
+        }
+
+        session.exercises.forEach((exercise, exerciseIndex) => {
+          exercise.sets.forEach((set, setIndex) => {
+            // Map set type to database enum values
+            const mapSetTypeToDatabase = (type: SetType): string => {
+              switch (type) {
+                case "normal":
+                  return "work";
+                case "warmup":
+                  return "warmup";
+                case "burnout":
+                  return "burnout";
+                case "dropset":
+                  return "dropset";
+                default:
+                  return "work"; // fallback
+              }
+            };
+
+            // Store set names in the notes field
+            const notes = set.notes || null;
+
+            const setData: ExerciseSetInsert = {
+              workout_block_id: block.id,
+              exercise_id: exercise.exercise.id,
+              exercise_name: exercise.exercise.name,
+              set_number: setIndex + 1,
+              set_type: mapSetTypeToDatabase(set.type),
+              reps: set.reps || null,
+              weight: set.weight || null,
+              rest_seconds: set.rest,
+              notes: notes,
+            };
+
+            // Validate required fields
+            if (
+              !setData.workout_block_id ||
+              !setData.exercise_id ||
+              !setData.exercise_name
+            ) {
+              console.error("Invalid set data:", setData);
+              return;
+            }
+
+            setsToInsert.push(setData);
+          });
+        });
+      });
+
+      console.log("Prepared exercise sets for insertion:", setsToInsert);
+
+      // Insert exercise sets
+      if (setsToInsert.length > 0) {
+        console.log("Inserting exercise sets:", setsToInsert);
+        const { data: insertedSets, error: setsError } = await supabase
+          .from("exercise_sets")
+          .insert(setsToInsert)
+          .select();
+
+        if (setsError) {
+          console.error("Error creating exercise sets:", setsError);
+          console.error("Sets that failed to insert:", setsToInsert);
+          return false;
+        }
+
+        console.log("Successfully inserted exercise sets:", insertedSets);
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error saving workout structure:", error);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Load workout from database
+  const loadWorkout = async (workoutId: string) => {
+    if (!user) {
+      console.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      setLoadingWorkout(true);
+
+      // Load workout
+      const { data: workout, error: workoutError } = await supabase
+        .from("workouts")
+        .select("*")
+        .eq("id", workoutId)
+        .single();
+
+      if (workoutError) {
+        console.error("Error loading workout:", workoutError);
+        return false;
+      }
+
+      setCurrentWorkout(workout);
+      setWorkoutName(workout.name ?? "Workout Name");
+      setWorkoutDifficulty(workout.difficulty ?? "Beginner");
+      setWorkoutEquipment(
+        workout.equipment
+          ? workout.equipment
+              .split(", ")
+              .filter((item: string) => item.trim() !== "")
+          : []
+      );
+      setWorkoutDescription(workout.description ?? "");
+      setWorkoutCoverPhoto(workout.cover_photo);
+
+      // Parse duration from database format (e.g., "1 hour 30 minutes")
+      const durationMatch =
+        workout.duration?.match(/(\d+)\s*hour(?:s)?\s*(\d+)\s*minute(?:s)?/) ||
+        workout.duration?.match(/(\d+)\s*hour(?:s)?/) ||
+        workout.duration?.match(/(\d+)\s*minute(?:s)?/) ||
+        // Fallback for old format
+        workout.duration?.match(/(\d+)\s*hr\s*(\d+)\s*min/) ||
+        workout.duration?.match(/(\d+)\s*hr/) ||
+        workout.duration?.match(/(\d+)\s*min/);
+      if (durationMatch) {
+        if (durationMatch[2]) {
+          // Format: "1 hour 30 minutes" or "1 hr 30 min"
+          setWorkoutDuration({
+            hours: parseInt(durationMatch[1]),
+            minutes: parseInt(durationMatch[2]),
+          });
+        } else if (
+          workout.duration?.includes("hour") ||
+          workout.duration?.includes("hr")
+        ) {
+          // Format: "1 hour" or "1 hr"
+          setWorkoutDuration({ hours: parseInt(durationMatch[1]), minutes: 0 });
+        } else {
+          // Format: "30 minutes" or "30 min"
+          setWorkoutDuration({ hours: 0, minutes: parseInt(durationMatch[1]) });
+        }
+      } else {
+        setWorkoutDuration({ hours: 0, minutes: 0 });
+      }
+
+      // Load workout blocks
+      const { data: blocks, error: blocksError } = await supabase
+        .from("workout_blocks")
+        .select("*")
+        .eq("workout_id", workoutId)
+        .order("order_index");
+
+      if (blocksError) {
+        console.error("Error loading workout blocks:", blocksError);
+        return false;
+      }
+
+      setWorkoutBlocks(blocks || []);
+
+      // Load exercise sets
+      const { data: sets, error: setsError } = await supabase
+        .from("exercise_sets")
+        .select("*")
+        .in("workout_block_id", blocks?.map((b) => b.id) || []);
+
+      if (setsError) {
+        console.error("Error loading exercise sets:", setsError);
+        return false;
+      }
+
+      setExerciseSets(sets || []);
+
+      // Convert database structure back to component state
+      const loadedSessions: Session[] =
+        blocks?.map((block) => {
+          const blockSets =
+            sets?.filter((s) => s.workout_block_id === block.id) || [];
+
+          // Group sets by exercise
+          const exerciseGroups = new Map<string, DatabaseExerciseSet[]>();
+          blockSets.forEach((set) => {
+            const exerciseId = set.exercise_id || "unknown";
+            if (!exerciseGroups.has(exerciseId)) {
+              exerciseGroups.set(exerciseId, []);
+            }
+            exerciseGroups.get(exerciseId)!.push(set);
+          });
+
+          const sessionExercises: WorkoutExercise[] = Array.from(
+            exerciseGroups.entries()
+          ).map(([exerciseId, exerciseSets]) => {
+            const exercise = exercises.find((e) => e.id === exerciseId);
+            if (!exercise) {
+              // Create a placeholder exercise if not found
+              const firstSet = exerciseSets[0];
+              const placeholderExercise: Exercise = {
+                id: exerciseId,
+                name: firstSet.exercise_name || "Unknown Exercise",
+                video_url_1: null,
+                video_url_2: null,
+                image: null,
+                difficulty: null,
+                equipment: null,
+                exercise_type: null,
+                muscles_trained: null,
+                instructions: null,
+                cues_and_tips: null,
+                is_active: true,
+                is_global: true,
+                coach_id: null,
+              };
+
+              // Map database set type back to component type
+              const mapDatabaseSetTypeToComponent = (
+                dbType: string
+              ): SetType => {
+                switch (dbType) {
+                  case "work":
+                    return "normal";
+                  case "warmup":
+                    return "warmup";
+                  case "burnout":
+                    return "burnout";
+                  case "dropset":
+                    return "dropset";
+                  default:
+                    return "normal";
+                }
+              };
+
+              return {
+                id: exerciseId,
+                exercise: placeholderExercise,
+                sets: exerciseSets.map((set) => ({
+                  id: set.id,
+                  type: mapDatabaseSetTypeToComponent(set.set_type || "work"),
+                  setNumber: set.set_number,
+                  time: 0, // Not stored in database
+                  rest: set.rest_seconds || 0,
+                  weight: set.weight || undefined,
+                  reps: set.reps || undefined,
+                  notes: set.notes || undefined,
+                })),
+                instructions: "",
+              };
+            }
+
+            // Get exercise instructions from the exercise library
+            const exerciseInstructions = exercise.instructions || "";
+
+            return {
+              id: exerciseId,
+              exercise,
+              sets: exerciseSets.map((set) => ({
+                id: set.id,
+                type: (set.set_type as SetType) || "normal",
+                setNumber: set.set_number,
+                time: 0, // Not stored in database
+                rest: set.rest_seconds || 0,
+                weight: set.weight || undefined,
+                reps: set.reps || undefined,
+                notes: set.notes || undefined,
+              })),
+              instructions: exerciseInstructions,
+            };
+          });
+
+          return {
+            id: block.id,
+            type: (block.type as SessionType) || "normal",
+            name: block.name || "Session",
+            exercises: sessionExercises,
+          };
+        }) || [];
+
+      setSessions(loadedSessions);
+
+      return true;
+    } catch (error) {
+      console.error("Error loading workout:", error);
+      return false;
+    } finally {
+      setLoadingWorkout(false);
+    }
+  };
+
+  // Load workout for duplication (same as loadWorkout but clears the current workout ID)
+  const loadWorkoutForDuplication = async (workoutId: string) => {
+    if (!user) {
+      console.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      setLoadingWorkout(true);
+
+      // Load workout
+      const { data: workout, error: workoutError } = await supabase
+        .from("workouts")
+        .select("*")
+        .eq("id", workoutId)
+        .single();
+
+      if (workoutError) {
+        console.error("Error loading workout:", workoutError);
+        return false;
+      }
+
+      // Clear the current workout ID so it creates a new workout when saved
+      setCurrentWorkout(null);
+      setWorkoutName((workout.name ?? "Workout Name") + " (Copy)");
+      setWorkoutDifficulty(workout.difficulty ?? "Beginner");
+      setWorkoutEquipment(
+        workout.equipment
+          ? workout.equipment
+              .split(", ")
+              .filter((item: string) => item.trim() !== "")
+          : []
+      );
+      setWorkoutDescription(workout.description ?? "");
+      setWorkoutCoverPhoto(workout.cover_photo);
+
+      // Parse duration from database format (e.g., "1 hour 30 minutes")
+      const durationMatch =
+        workout.duration?.match(/(\d+)\s*hour(?:s)?\s*(\d+)\s*minute(?:s)?/) ||
+        workout.duration?.match(/(\d+)\s*hour(?:s)?/) ||
+        workout.duration?.match(/(\d+)\s*minute(?:s)?/) ||
+        // Fallback for old format
+        workout.duration?.match(/(\d+)\s*hr\s*(\d+)\s*min/) ||
+        workout.duration?.match(/(\d+)\s*hr/) ||
+        workout.duration?.match(/(\d+)\s*min/);
+      if (durationMatch) {
+        if (durationMatch[2]) {
+          // Format: "1 hour 30 minutes" or "1 hr 30 min"
+          setWorkoutDuration({
+            hours: parseInt(durationMatch[1]),
+            minutes: parseInt(durationMatch[2]),
+          });
+        } else if (
+          workout.duration?.includes("hour") ||
+          workout.duration?.includes("hr")
+        ) {
+          // Format: "1 hour" or "1 hr"
+          setWorkoutDuration({ hours: parseInt(durationMatch[1]), minutes: 0 });
+        } else {
+          // Format: "30 minutes" or "30 min"
+          setWorkoutDuration({ hours: 0, minutes: parseInt(durationMatch[1]) });
+        }
+      } else {
+        setWorkoutDuration({ hours: 0, minutes: 0 });
+      }
+
+      // Load workout blocks
+      const { data: blocks, error: blocksError } = await supabase
+        .from("workout_blocks")
+        .select("*")
+        .eq("workout_id", workoutId)
+        .order("order_index");
+
+      if (blocksError) {
+        console.error("Error loading workout blocks:", blocksError);
+        return false;
+      }
+
+      setWorkoutBlocks(blocks || []);
+
+      // Load exercise sets
+      const { data: sets, error: setsError } = await supabase
+        .from("exercise_sets")
+        .select("*")
+        .in("workout_block_id", blocks?.map((b) => b.id) || []);
+
+      if (setsError) {
+        console.error("Error loading exercise sets:", setsError);
+        return false;
+      }
+
+      setExerciseSets(sets || []);
+
+      // Convert database structure back to component state (same as loadWorkout)
+      const loadedSessions: Session[] =
+        blocks?.map((block) => {
+          const blockSets =
+            sets?.filter((s) => s.workout_block_id === block.id) || [];
+
+          // Group sets by exercise
+          const exerciseGroups = new Map<string, DatabaseExerciseSet[]>();
+          blockSets.forEach((set) => {
+            const exerciseId = set.exercise_id || "unknown";
+            if (!exerciseGroups.has(exerciseId)) {
+              exerciseGroups.set(exerciseId, []);
+            }
+            exerciseGroups.get(exerciseId)!.push(set);
+          });
+
+          const sessionExercises: WorkoutExercise[] = Array.from(
+            exerciseGroups.entries()
+          ).map(([exerciseId, exerciseSets]) => {
+            const exercise = exercises.find((e) => e.id === exerciseId);
+            if (!exercise) {
+              // Create a placeholder exercise if not found
+              const firstSet = exerciseSets[0];
+              const placeholderExercise: Exercise = {
+                id: exerciseId,
+                name: firstSet.exercise_name || "Unknown Exercise",
+                video_url_1: null,
+                video_url_2: null,
+                image: null,
+                difficulty: null,
+                equipment: null,
+                exercise_type: null,
+                muscles_trained: null,
+                instructions: null,
+                cues_and_tips: null,
+                is_active: true,
+                is_global: true,
+                coach_id: null,
+              };
+
+              // Map database set type back to component type
+              const mapDatabaseSetTypeToComponent = (
+                dbType: string
+              ): SetType => {
+                switch (dbType) {
+                  case "work":
+                    return "normal";
+                  case "warmup":
+                    return "warmup";
+                  case "burnout":
+                    return "burnout";
+                  case "dropset":
+                    return "dropset";
+                  default:
+                    return "normal";
+                }
+              };
+
+              // For placeholder exercises, we don't have exercise instructions from the library
+              // So we'll use empty instructions
+              const exerciseInstructions = "";
+
+              // Extract set-specific notes from the notes field
+              const setNotes = exerciseSets.map(
+                (set) => set.notes || undefined
+              );
+
+              return {
+                id: exerciseId,
+                exercise: placeholderExercise,
+                sets: exerciseSets.map((set, setIndex) => ({
+                  id: set.id,
+                  type: mapDatabaseSetTypeToComponent(set.set_type || "work"),
+                  setNumber: set.set_number,
+                  time: 0, // Not stored in database
+                  rest: set.rest_seconds || 0,
+                  weight: set.weight || undefined,
+                  reps: set.reps || undefined,
+                  notes: set.notes || undefined,
+                })),
+                instructions: exerciseInstructions,
+              };
+            }
+
+            // Get exercise instructions from the exercise library
+            const exerciseInstructions = exercise.instructions || "";
+
+            return {
+              id: exerciseId,
+              exercise,
+              sets: exerciseSets.map((set) => ({
+                id: set.id,
+                type: (set.set_type as SetType) || "normal",
+                setNumber: set.set_number,
+                time: 0, // Not stored in database
+                rest: set.rest_seconds || 0,
+                weight: set.weight || undefined,
+                reps: set.reps || undefined,
+                notes: set.notes || undefined,
+              })),
+              instructions: exerciseInstructions,
+            };
+          });
+
+          return {
+            id: block.id,
+            type: (block.type as SessionType) || "normal",
+            name: block.name || "Session",
+            exercises: sessionExercises,
+          };
+        }) || [];
+
+      setSessions(loadedSessions);
+
+      return true;
+    } catch (error) {
+      console.error("Error loading workout for duplication:", error);
+      return false;
+    } finally {
+      setLoadingWorkout(false);
+    }
+  };
+
+  // Save current workout
+  const saveWorkout = async () => {
+    if (!user) {
+      console.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      setSaving(true);
+
+      let workoutId = currentWorkout?.id;
+
+      // Create new workout if none exists
+      if (!workoutId) {
+        const newWorkoutId = await createWorkout();
+        if (!newWorkoutId) return false;
+        workoutId = newWorkoutId;
+      }
+
+      // Update workout name and duration
+      const updateData: WorkoutUpdate = {
+        name: workoutName || null,
+        lastModified: new Date().toISOString(),
+        duration: formatWorkoutDuration(),
+        difficulty: workoutDifficulty,
+        equipment: workoutEquipment.join(", "),
+        description: workoutDescription || null,
+        cover_photo: workoutCoverPhoto,
+      };
+
+      const { error } = await supabase
+        .from("workouts")
+        .update(updateData)
+        .eq("id", workoutId);
+
+      if (error) {
+        console.error("Error updating workout:", error);
+        return false;
+      }
+
+      // Delete existing blocks and sets
+      if (currentWorkout) {
+        const { error: deleteSetsError } = await supabase
+          .from("exercise_sets")
+          .delete()
+          .in(
+            "workout_block_id",
+            workoutBlocks.map((b) => b.id)
+          );
+
+        const { error: deleteBlocksError } = await supabase
+          .from("workout_blocks")
+          .delete()
+          .eq("workout_id", workoutId);
+
+        if (deleteSetsError || deleteBlocksError) {
+          console.error(
+            "Error deleting existing workout structure:",
+            deleteSetsError || deleteBlocksError
+          );
+          return false;
+        }
+      }
+
+      // Save new structure
+      const success = await saveWorkoutStructure(workoutId);
+
+      if (success) {
+        const message = editWorkoutId
+          ? "Workout updated successfully!"
+          : duplicateWorkoutId
+          ? "Workout duplicated successfully!"
+          : "Workout saved successfully!";
+        addToast({
+          type: "success",
+          message,
+          duration: 3000,
+        });
+      } else {
+        addToast({
+          type: "error",
+          message: "Failed to save workout. Please try again.",
+          duration: 4000,
+        });
+      }
+
+      return success;
+    } catch (error) {
+      console.error("Error saving workout:", error);
+      addToast({
+        type: "error",
+        message: "An error occurred while saving the workout.",
+        duration: 4000,
+      });
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete workout
+  const deleteWorkout = async (workoutId: string) => {
+    if (!user) {
+      console.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      setSaving(true);
+
+      // Delete exercise sets
+      const { error: deleteSetsError } = await supabase
+        .from("exercise_sets")
+        .delete()
+        .in(
+          "workout_block_id",
+          workoutBlocks.map((b) => b.id)
+        );
+
+      // Delete workout blocks
+      const { error: deleteBlocksError } = await supabase
+        .from("workout_blocks")
+        .delete()
+        .eq("workout_id", workoutId);
+
+      // Delete workout
+      const { error: deleteWorkoutError } = await supabase
+        .from("workouts")
+        .delete()
+        .eq("id", workoutId);
+
+      if (deleteSetsError || deleteBlocksError || deleteWorkoutError) {
+        console.error(
+          "Error deleting workout:",
+          deleteSetsError || deleteBlocksError || deleteWorkoutError
+        );
+        return false;
+      }
+
+      // Reset state
+      setCurrentWorkout(null);
+      setWorkoutBlocks([]);
+      setExerciseSets([]);
+      setSessions([]);
+      setWorkoutName("Workout Name");
+
+      return true;
+    } catch (error) {
+      console.error("Error deleting workout:", error);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-0px)] bg-gray-50">
       {/* Sidebar */}
@@ -1071,7 +2093,7 @@ export default function WorkoutBuilderSection() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
             </div>
           ) : (
-          <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {filteredExercises.map((exercise) => (
                 <div
                   key={exercise.id}
@@ -1081,8 +2103,8 @@ export default function WorkoutBuilderSection() {
                       : "border-gray-200"
                   } rounded-lg p-2 cursor-pointer hover:border-blue-300 transition-colors`}
                   onClick={() => handleExerciseSelect(exercise)}
-              >
-                <div className="w-full h-16 bg-gray-900 rounded relative mb-2 flex-shrink-0">
+                >
+                  <div className="w-full h-16 bg-gray-900 rounded relative mb-2 flex-shrink-0">
                     <img
                       className="w-full h-full object-cover rounded"
                       src={getThumbnailUrl(exercise.video_url_1)}
@@ -1094,12 +2116,12 @@ export default function WorkoutBuilderSection() {
                       }}
                     />
                     {exercise.video_url_1 && (
-                  <div className="absolute top-1 left-1 bg-black bg-opacity-50 rounded-full w-4 h-4 flex items-center justify-center">
-                    <PlayIcon />
-                  </div>
+                      <div className="absolute top-1 left-1 bg-black bg-opacity-50 rounded-full w-4 h-4 flex items-center justify-center">
+                        <PlayIcon />
+                      </div>
                     )}
-                </div>
-                <div>
+                  </div>
+                  <div>
                     <p
                       className={`text-xs font-medium ${
                         selectedExercise?.id === exercise.id
@@ -1119,15 +2141,15 @@ export default function WorkoutBuilderSection() {
                         {exercise.equipment}
                       </p>
                     )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
               {filteredExercises.length === 0 && !loading && (
                 <div className="col-span-2 text-center py-8 text-gray-500">
                   {searchQuery
                     ? "No exercises found matching your search."
                     : "No exercises available."}
-          </div>
+                </div>
               )}
             </div>
           )}
@@ -1136,29 +2158,329 @@ export default function WorkoutBuilderSection() {
 
       {/* Main workout area */}
       <main className="flex-1 flex flex-col">
-        <div className="bg-white border-b border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <input
-                type="text"
-                value={workoutName}
-                onChange={(e) => setWorkoutName(e.target.value)}
-                className="text-2xl font-bold text-gray-900 bg-transparent border-none outline-none focus:ring-0 w-full"
-                placeholder="Enter workout name..."
-              />
-              <p className="text-sm text-gray-600 mt-1">
-                Avoid overstretching and make sure you get a deep stretch in the
-                target muscle without having pain in surrounding joints...
-              </p>
+        <div className="bg-white border-b border-gray-200">
+          {/* Header with workout name and expand/collapse */}
+          <div className="p-6 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3 flex-1">
+                <input
+                  type="text"
+                  value={workoutName}
+                  onChange={(e) => setWorkoutName(e.target.value)}
+                  className="text-2xl font-bold text-gray-900 bg-transparent border-none outline-none focus:ring-0 w-full"
+                  placeholder="Enter workout name..."
+                />
+                {editWorkoutId && (
+                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                    Editing
+                  </span>
+                )}
+                {duplicateWorkoutId && (
+                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                    Duplicating
+                  </span>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() =>
+                    setIsWorkoutDetailsExpanded(!isWorkoutDetailsExpanded)
+                  }
+                  className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <span>
+                    {isWorkoutDetailsExpanded ? "Hide Details" : "Show Details"}
+                  </span>
+                  <svg
+                    className={`w-4 h-4 transition-transform ${
+                      isWorkoutDetailsExpanded ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                <button
+                  onClick={saveWorkout}
+                  disabled={saving}
+                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  {saving
+                    ? "Saving..."
+                    : editWorkoutId
+                    ? "Update Workout"
+                    : duplicateWorkoutId
+                    ? "Save as New"
+                    : "Save Workout"}
+                </button>
+
+                {currentWorkout && (
+                  <button
+                    onClick={() => deleteWorkout(currentWorkout.id)}
+                    disabled={saving}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    {saving ? "Deleting..." : "Delete"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Expandable workout details */}
+          {isWorkoutDetailsExpanded && (
+            <div className="p-6 bg-gray-50">
+              <div className="max-w-4xl mx-auto">
+                {loadingWorkout ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex items-center space-x-3">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                      <span className="text-gray-600 text-sm">
+                        Loading workout details...
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Left column */}
+                    <div className="space-y-6">
+                      {/* Difficulty */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Difficulty Level
+                        </label>
+                        <select
+                          value={workoutDifficulty}
+                          onChange={(e) => setWorkoutDifficulty(e.target.value)}
+                          className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        >
+                          <option value="Beginner">Beginner</option>
+                          <option value="Intermediate">Intermediate</option>
+                          <option value="Advanced">Advanced</option>
+                        </select>
+                      </div>
+
+                      {/* Equipment */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Equipment Required
+                        </label>
+                        <div className="relative equipment-dropdown">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenDropdown(
+                                openDropdown === "equipment"
+                                  ? null
+                                  : "equipment"
+                              )
+                            }
+                            className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-left flex items-center justify-between transition-colors"
+                          >
+                            <span
+                              className={
+                                workoutEquipment.length === 0
+                                  ? "text-gray-500"
+                                  : "text-gray-900"
+                              }
+                            >
+                              {workoutEquipment.length === 0
+                                ? "Select equipment..."
+                                : `${workoutEquipment.length} selected`}
+                            </span>
+                            <svg
+                              className="w-4 h-4 ml-2 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </button>
+                          {openDropdown === "equipment" && (
+                            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              <div className="p-2">
+                                {[
+                                  "Dumbbells",
+                                  "Barbell",
+                                  "Kettlebell",
+                                  "Resistance Bands",
+                                  "Pull-up Bar",
+                                  "Bench",
+                                  "Squat Rack",
+                                  "Cable Machine",
+                                  "Treadmill",
+                                  "Elliptical",
+                                  "Rowing Machine",
+                                  "Medicine Ball",
+                                  "Foam Roller",
+                                  "Yoga Mat",
+                                  "None",
+                                ].map((equipment) => (
+                                  <label
+                                    key={equipment}
+                                    className="flex items-center p-3 hover:bg-gray-50 cursor-pointer rounded-md transition-colors"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={workoutEquipment.includes(
+                                        equipment
+                                      )}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setWorkoutEquipment([
+                                            ...workoutEquipment,
+                                            equipment,
+                                          ]);
+                                        } else {
+                                          setWorkoutEquipment(
+                                            workoutEquipment.filter(
+                                              (item) => item !== equipment
+                                            )
+                                          );
+                                        }
+                                      }}
+                                      className="mr-3"
+                                    />
+                                    <span className="text-sm text-gray-700">
+                                      {equipment}
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Cover Photo */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Cover Photo URL
+                        </label>
+                        <input
+                          type="url"
+                          value={workoutCoverPhoto || ""}
+                          onChange={(e) =>
+                            setWorkoutCoverPhoto(e.target.value || null)
+                          }
+                          placeholder="Enter image URL..."
+                          className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        />
+                        {workoutCoverPhoto && (
+                          <div className="mt-2">
+                            <img
+                              src={workoutCoverPhoto}
+                              alt="Workout cover preview"
+                              className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Duration */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Workout Duration
+                        </label>
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-1">
+                            <select
+                              value={workoutDuration.hours}
+                              onChange={(e) =>
+                                setWorkoutDuration((prev) => ({
+                                  ...prev,
+                                  hours: parseInt(e.target.value),
+                                }))
+                              }
+                              className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            >
+                              {Array.from({ length: 13 }, (_, i) => (
+                                <option key={i} value={i}>
+                                  {i} hour{i !== 1 ? "s" : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex-1">
+                            <select
+                              value={workoutDuration.minutes}
+                              onChange={(e) =>
+                                setWorkoutDuration((prev) => ({
+                                  ...prev,
+                                  minutes: parseInt(e.target.value),
+                                }))
+                              }
+                              className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                            >
+                              {Array.from({ length: 60 }, (_, i) => (
+                                <option key={i} value={i}>
+                                  {i} minute{i !== 1 ? "s" : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right column */}
+                    <div className="space-y-6">
+                      {/* Description */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Workout Description
+                        </label>
+                        <textarea
+                          value={workoutDescription}
+                          onChange={(e) =>
+                            setWorkoutDescription(e.target.value)
+                          }
+                          placeholder="Enter workout description..."
+                          rows={8}
+                          className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex-1 flex p-6 overflow-y-auto">
           <div className="w-full max-w-3xl mx-auto space-y-6">
-            {selectedWorkoutExercise ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-gray-900 rounded-lg flex-shrink-0">
+            {loadingWorkout ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="flex items-center space-x-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  <span className="text-gray-600 text-lg">
+                    Loading workout...
+                  </span>
+                </div>
+              </div>
+            ) : selectedWorkoutExercise ? (
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="flex items-start space-x-4">
+                  <div className="w-16 h-16 bg-gray-900 rounded-lg flex-shrink-0">
                     <img
                       className="w-full h-full object-cover rounded-lg"
                       src={getThumbnailUrl(
@@ -1170,9 +2492,9 @@ export default function WorkoutBuilderSection() {
                           "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' fill='%236b7280' text-anchor='middle' dy='.3em'%3EExercise%3C/text%3E%3C/svg%3E";
                       }}
                     />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-4">
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold text-gray-900">
                         {selectedWorkoutExercise.exercise.name}
                       </h3>
@@ -1203,31 +2525,34 @@ export default function WorkoutBuilderSection() {
                               >
                                 Delete Exercise
                               </button>
-                  </div>
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
 
                     {/* Sets Table */}
-                  <div className="overflow-x-auto mb-4">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-200">
+                    <div className="overflow-x-auto mb-4">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200">
                             <th className="text-left py-2 text-gray-600">#</th>
                             <th className="text-left py-2 text-gray-600">
                               Exercise
                             </th>
                             <th className="text-left py-2 text-gray-600">
-                              Time
-                            </th>
-                            <th className="text-left py-2 text-gray-600">
                               Rest
                             </th>
-                          <th className="text-left py-2 text-gray-600"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                            <th className="text-left py-2 text-gray-600">
+                              Weight
+                            </th>
+                            <th className="text-left py-2 text-gray-600">
+                              Reps
+                            </th>
+                            <th className="text-left py-2 text-gray-600"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
                           {selectedWorkoutExercise.sets.map((set, index) => (
                             <tr
                               key={set.id}
@@ -1241,31 +2566,19 @@ export default function WorkoutBuilderSection() {
                               onClick={() => setSelectedSetId(set.id)}
                             >
                               <td className="py-2">{index + 1}</td>
-                          <td className="py-2">
+                              <td className="py-2">
                                 <input
                                   type="text"
-                                  value={set.customName || ""}
+                                  value={set.notes || ""}
                                   onChange={(e) =>
-                                    updateSetCustomName(set.id, e.target.value)
+                                    updateSetNotes(set.id, e.target.value)
                                   }
                                   placeholder="Enter set name..."
                                   className="w-full text-sm border-none outline-none focus:ring-0 bg-transparent px-2 py-1 rounded hover:bg-gray-100 focus:bg-white focus:border focus:border-blue-300"
                                   onClick={(e) => e.stopPropagation()}
                                 />
-                          </td>
-                          <td className="py-2">
-                                <div className="relative time-picker-container">
-                                  <button
-                                    className="bg-transparent border-none outline-none focus:ring-0 text-sm text-left w-full py-1 px-2 rounded hover:bg-gray-100"
-                                    onClick={() =>
-                                      openTimeModal("time", set.id)
-                                    }
-                                  >
-                                    {formatDuration(set.time)}
-                                  </button>
-                                </div>
-                          </td>
-                          <td className="py-2">
+                              </td>
+                              <td className="py-2">
                                 <div className="relative time-picker-container">
                                   <button
                                     className="bg-transparent border-none outline-none focus:ring-0 text-sm text-left w-full py-1 px-2 rounded hover:bg-gray-100"
@@ -1278,6 +2591,34 @@ export default function WorkoutBuilderSection() {
                                 </div>
                               </td>
                               <td className="py-2">
+                                <input
+                                  type="text"
+                                  value={set.weight || ""}
+                                  onChange={(e) =>
+                                    updateSetWeight(set.id, e.target.value)
+                                  }
+                                  placeholder="Enter weight..."
+                                  className="w-20 text-sm border-none outline-none focus:ring-0 bg-transparent px-2 py-1 rounded hover:bg-gray-100 focus:bg-white focus:border focus:border-blue-300"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </td>
+                              <td className="py-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={set.reps || ""}
+                                  onChange={(e) =>
+                                    updateSetReps(
+                                      set.id,
+                                      parseInt(e.target.value) || 0
+                                    )
+                                  }
+                                  placeholder="Reps"
+                                  className="w-16 text-sm border-none outline-none focus:ring-0 bg-transparent px-2 py-1 rounded hover:bg-gray-100 focus:bg-white focus:border focus:border-blue-300"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </td>
+                              <td className="py-2">
                                 <button
                                   className="bg-red-500 hover:bg-red-600 text-white w-6 h-6 rounded flex items-center justify-center transition-colors"
                                   onClick={(e) => {
@@ -1287,8 +2628,8 @@ export default function WorkoutBuilderSection() {
                                 >
                                   <MinusIcon />
                                 </button>
-                          </td>
-                        </tr>
+                              </td>
+                            </tr>
                           ))}
                           {selectedWorkoutExercise.sets.length === 0 && (
                             <tr>
@@ -1301,12 +2642,12 @@ export default function WorkoutBuilderSection() {
                               </td>
                             </tr>
                           )}
-                      </tbody>
-                    </table>
-                  </div>
+                        </tbody>
+                      </table>
+                    </div>
 
                     {/* Add Set Buttons */}
-                  <div className="flex items-center space-x-2 mt-2">
+                    <div className="flex items-center space-x-2 mt-2">
                       <button
                         className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
                         onClick={() => addSet("normal")}
@@ -1320,36 +2661,26 @@ export default function WorkoutBuilderSection() {
                         + Add Warm-Up Set
                       </button>
                       <button
+                        className="bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-600 transition-colors"
+                        onClick={() => addSet("burnout")}
+                      >
+                        + Add Burnout Set
+                      </button>
+                      <button
                         className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
                         onClick={() => addSet("dropset")}
                       >
                         + Add Dropset
                       </button>
-                  </div>
-
-                    {/* Instructions */}
-                    <div className="mb-3 mt-4">
-                      <p className="text-sm text-gray-500 mb-2">
-                        Workout-Specific Instructions (Exercise instructions are
-                        displayed automatically)
-                      </p>
-                  </div>
-                  <div className="bg-gray-100 rounded-lg p-3">
-                      <textarea
-                        value={selectedWorkoutExercise.instructions}
-                        onChange={(e) => updateInstructions(e.target.value)}
-                        className="w-full bg-transparent border-none outline-none focus:ring-0 text-sm text-gray-600 resize-none"
-                        rows={3}
-                        placeholder="Add specific instructions for this exercise..."
-                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-            ) : (
+            ) : sessions.length > 0 || workoutExercises.length > 0 ? null : (
               <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
                 <p className="text-gray-500">
-                  Select an exercise from the left panel to view details
+                  Select an exercise from the left panel to start building your
+                  workout
                 </p>
               </div>
             )}
@@ -1360,8 +2691,8 @@ export default function WorkoutBuilderSection() {
                 key={workoutExercise.id}
                 className="bg-white rounded-lg border border-gray-200 p-6"
               >
-                  <div className="flex items-start space-x-4">
-                    <div className="w-16 h-16 bg-gray-900 rounded-lg flex-shrink-0">
+                <div className="flex items-start space-x-4">
+                  <div className="w-16 h-16 bg-gray-900 rounded-lg flex-shrink-0">
                     <img
                       className="w-full h-full object-cover rounded-lg"
                       src={getThumbnailUrl(
@@ -1373,9 +2704,9 @@ export default function WorkoutBuilderSection() {
                           "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' fill='%236b7280' text-anchor='middle' dy='.3em'%3EExercise%3C/text%3E%3C/svg%3E";
                       }}
                     />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-4">
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-semibold text-gray-900">
                         {workoutExercise.exercise.name}
                       </h3>
@@ -1406,11 +2737,11 @@ export default function WorkoutBuilderSection() {
                               >
                                 Delete Exercise
                               </button>
-                      </div>
-                      </div>
+                            </div>
+                          </div>
                         )}
                       </div>
-                      </div>
+                    </div>
 
                     {/* Sets Summary */}
                     <div className="mb-4">
@@ -1451,9 +2782,9 @@ export default function WorkoutBuilderSection() {
                         </p>
                       </div>
                     )}
-                    </div>
                   </div>
                 </div>
+              </div>
             ))}
 
             {/* Display sessions in main area */}
@@ -1552,8 +2883,8 @@ export default function WorkoutBuilderSection() {
                           setSelectedSessionExerciseId(exercise.id)
                         }
                       >
-                  <div className="flex items-start space-x-4">
-                    <div className="w-16 h-16 bg-gray-900 rounded-lg flex-shrink-0">
+                        <div className="flex items-start space-x-4">
+                          <div className="w-16 h-16 bg-gray-900 rounded-lg flex-shrink-0">
                             <img
                               className="w-full h-full object-cover rounded-lg"
                               src={getThumbnailUrl(
@@ -1565,9 +2896,9 @@ export default function WorkoutBuilderSection() {
                                   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' fill='%236b7280' text-anchor='middle' dy='.3em'%3EExercise%3C/text%3E%3C/svg%3E";
                               }}
                             />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-4">
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-4">
                               <h3 className="text-lg font-semibold text-gray-900">
                                 {exercise.exercise.name}
                               </h3>
@@ -1613,17 +2944,17 @@ export default function WorkoutBuilderSection() {
                                       >
                                         Delete Entire Session
                                       </button>
-                      </div>
+                                    </div>
                                   </div>
                                 )}
                               </div>
                             </div>
 
                             {/* Sets Table for Session Exercise */}
-                      <div className="overflow-x-auto mb-4">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-gray-200">
+                            <div className="overflow-x-auto mb-4">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-gray-200">
                                     <th className="text-left py-2 text-gray-600">
                                       #
                                     </th>
@@ -1631,15 +2962,18 @@ export default function WorkoutBuilderSection() {
                                       Exercise
                                     </th>
                                     <th className="text-left py-2 text-gray-600">
-                                      Time
-                                    </th>
-                                    <th className="text-left py-2 text-gray-600">
                                       Rest
                                     </th>
-                              <th className="text-left py-2 text-gray-600"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
+                                    <th className="text-left py-2 text-gray-600">
+                                      Weight
+                                    </th>
+                                    <th className="text-left py-2 text-gray-600">
+                                      Reps
+                                    </th>
+                                    <th className="text-left py-2 text-gray-600"></th>
+                                  </tr>
+                                </thead>
+                                <tbody>
                                   {exercise.sets.map((set, index) => (
                                     <tr
                                       key={set.id}
@@ -1656,9 +2990,9 @@ export default function WorkoutBuilderSection() {
                                       <td className="py-2">
                                         <input
                                           type="text"
-                                          value={set.customName || ""}
+                                          value={set.notes || ""}
                                           onChange={(e) =>
-                                            updateSessionExerciseSetCustomName(
+                                            updateSessionExerciseSetNotes(
                                               session.id,
                                               exercise.id,
                                               set.id,
@@ -1669,24 +3003,6 @@ export default function WorkoutBuilderSection() {
                                           className="w-full text-sm border-none outline-none focus:ring-0 bg-transparent px-2 py-1 rounded hover:bg-gray-100 focus:bg-white focus:border focus:border-blue-300"
                                           onClick={(e) => e.stopPropagation()}
                                         />
-                                      </td>
-                                      <td className="py-2">
-                                        <div className="relative time-picker-container">
-                                          <button
-                                            className="bg-transparent border-none outline-none focus:ring-0 text-sm text-left w-full py-1 px-2 rounded hover:bg-gray-100"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              openTimeModal(
-                                                "time",
-                                                set.id,
-                                                session.id,
-                                                exercise.id
-                                              );
-                                            }}
-                                          >
-                                            {formatDuration(set.time)}
-                                          </button>
-                                        </div>
                                       </td>
                                       <td className="py-2">
                                         <div className="relative time-picker-container">
@@ -1707,6 +3023,41 @@ export default function WorkoutBuilderSection() {
                                         </div>
                                       </td>
                                       <td className="py-2">
+                                        <input
+                                          type="text"
+                                          value={set.weight || ""}
+                                          onChange={(e) =>
+                                            updateSessionExerciseSetWeight(
+                                              session.id,
+                                              exercise.id,
+                                              set.id,
+                                              e.target.value
+                                            )
+                                          }
+                                          placeholder="Enter weight..."
+                                          className="w-20 text-sm border-none outline-none focus:ring-0 bg-transparent px-2 py-1 rounded hover:bg-gray-100 focus:bg-white focus:border focus:border-blue-300"
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      </td>
+                                      <td className="py-2">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={set.reps || ""}
+                                          onChange={(e) =>
+                                            updateSessionExerciseSetReps(
+                                              session.id,
+                                              exercise.id,
+                                              set.id,
+                                              parseInt(e.target.value) || 0
+                                            )
+                                          }
+                                          placeholder="Reps"
+                                          className="w-16 text-sm border-none outline-none focus:ring-0 bg-transparent px-2 py-1 rounded hover:bg-gray-100 focus:bg-white focus:border focus:border-blue-300"
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      </td>
+                                      <td className="py-2">
                                         <button
                                           className="bg-red-500 hover:bg-red-600 text-white w-6 h-6 rounded flex items-center justify-center transition-colors"
                                           onClick={(e) => {
@@ -1721,7 +3072,7 @@ export default function WorkoutBuilderSection() {
                                           <MinusIcon />
                                         </button>
                                       </td>
-                            </tr>
+                                    </tr>
                                   ))}
                                   {exercise.sets.length === 0 && (
                                     <tr>
@@ -1732,14 +3083,14 @@ export default function WorkoutBuilderSection() {
                                         No sets added yet. Use the buttons below
                                         to add sets.
                                       </td>
-                            </tr>
+                                    </tr>
                                   )}
-                          </tbody>
-                        </table>
-                      </div>
+                                </tbody>
+                              </table>
+                            </div>
 
                             {/* Add Set Buttons for Session Exercise */}
-                      <div className="flex items-center space-x-2 mt-2">
+                            <div className="flex items-center space-x-2 mt-2">
                               <button
                                 className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
                                 onClick={(e) => {
@@ -1767,6 +3118,19 @@ export default function WorkoutBuilderSection() {
                                 + Add Warm-Up Set
                               </button>
                               <button
+                                className="bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-600 transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  addSessionExerciseSet(
+                                    session.id,
+                                    exercise.id,
+                                    "burnout"
+                                  );
+                                }}
+                              >
+                                + Add Burnout Set
+                              </button>
+                              <button
                                 className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-600 transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1779,38 +3143,16 @@ export default function WorkoutBuilderSection() {
                               >
                                 + Add Dropset
                               </button>
-                      </div>
+                            </div>
 
                             {/* Instructions for Session Exercise */}
-                            <div className="mb-3 mt-4">
-                              <p className="text-sm text-gray-500 mb-2">
-                                Workout-Specific Instructions (Exercise
-                                instructions are displayed automatically)
-                              </p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="bg-gray-100 rounded-lg p-3">
-                              <textarea
-                                value={exercise.instructions}
-                                onChange={(e) =>
-                                  updateSessionExerciseInstructions(
-                                    session.id,
-                                    exercise.id,
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full bg-transparent border-none outline-none focus:ring-0 text-sm text-gray-600 resize-none"
-                                rows={3}
-                                placeholder="Add specific instructions for this exercise..."
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                      </div>
-                    </div>
-                  </div>
-                </div>
                     ))
                   )}
+                </div>
               </div>
-            </div>
             ))}
           </div>
         </div>
@@ -1858,7 +3200,7 @@ export default function WorkoutBuilderSection() {
             items={sessions.map((s) => `session-${s.id}`)}
             strategy={verticalListSortingStrategy}
           >
-        <div className="space-y-3">
+            <div className="space-y-3">
               {/* Display workout exercises as individual items */}
               {workoutExercises.length > 0 && (
                 <DndContext
@@ -1901,7 +3243,7 @@ export default function WorkoutBuilderSection() {
                         {selectedSessionId === session.id
                           ? "Click exercises from left panel"
                           : "No exercises added yet"}
-          </div>
+                      </div>
                     ) : (
                       <DndContext
                         sensors={sensors}
@@ -1927,7 +3269,7 @@ export default function WorkoutBuilderSection() {
                         </SortableContext>
                       </DndContext>
                     )}
-            </div>
+                  </div>
                 </SortableSession>
               ))}
 
@@ -1938,9 +3280,9 @@ export default function WorkoutBuilderSection() {
                   <p className="text-xs mt-1">
                     Select exercises from the left panel or add sessions above
                   </p>
-            </div>
+                </div>
               )}
-          </div>
+            </div>
           </SortableContext>
         </DndContext>
       </aside>
@@ -1996,11 +3338,11 @@ export default function WorkoutBuilderSection() {
                     onClick={() => updateDuration(minutes)}
                     className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {minutes} min
+                    {minutes} minute{minutes !== 1 ? "s" : ""}
                   </button>
                 ))}
+              </div>
             </div>
-          </div>
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2019,8 +3361,8 @@ export default function WorkoutBuilderSection() {
                   placeholder="Enter minutes"
                 />
                 <span className="text-sm text-gray-500">minutes</span>
-          </div>
-        </div>
+              </div>
+            </div>
 
             <div className="flex justify-end space-x-2">
               <button
@@ -2044,4 +3386,4 @@ export default function WorkoutBuilderSection() {
       )}
     </div>
   );
-} 
+}
