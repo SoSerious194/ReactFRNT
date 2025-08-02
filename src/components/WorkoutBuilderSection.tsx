@@ -6,6 +6,9 @@ import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/lib/useAuth";
 import { Tables, TablesInsert, TablesUpdate } from "@/types/database";
 import { useToast } from "@/components/ui/toast";
+import { PdfUploadModal } from "./PdfUploadModal";
+import { ExerciseMatchingModal } from "./ExerciseMatchingModal";
+import { ProcessedWorkout, UnmatchedExercise } from "@/types/workoutImport";
 import {
   DndContext,
   closestCenter,
@@ -322,7 +325,7 @@ type WorkoutExercise = {
   instructions: string;
 };
 
-type SessionType = "normal" | "superset" | "circuit";
+type SessionType = "normal" | "superset" | "circuit" | "warmup" | "cooldown";
 
 type Session = {
   id: string;
@@ -427,6 +430,15 @@ export default function WorkoutBuilderSection({
   } | null>(null);
   const [customDuration, setCustomDuration] = useState(5);
 
+  // PDF Import state
+  const [showPdfUpload, setShowPdfUpload] = useState(false);
+  const [showExerciseMatching, setShowExerciseMatching] = useState(false);
+  const [processedWorkout, setProcessedWorkout] =
+    useState<ProcessedWorkout | null>(null);
+  const [unmatchedExercises, setUnmatchedExercises] = useState<
+    UnmatchedExercise[]
+  >([]);
+
   // Workout state
   const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(null);
   const [workoutBlocks, setWorkoutBlocks] = useState<WorkoutBlock[]>([]);
@@ -493,7 +505,7 @@ export default function WorkoutBuilderSection({
           .from("exercise_library")
           .select("*")
           .eq("is_active", true)
-          .order("name", { ascending: true });
+          .order("created_at", { ascending: false });
 
         if (error) {
           console.error("Error fetching exercises:", error);
@@ -1362,6 +1374,16 @@ export default function WorkoutBuilderSection({
       setSaving(true);
 
       // Convert sessions to workout blocks
+      console.log("Sessions to save:", sessions);
+      console.log("Sessions length:", sessions.length);
+
+      if (sessions.length === 0) {
+        console.error(
+          "No sessions to save - this will cause the database insert to fail"
+        );
+        return false;
+      }
+
       const blocksToInsert: WorkoutBlockInsert[] = sessions.map(
         (session, index) => ({
           workout_id: workoutId,
@@ -2049,8 +2071,302 @@ export default function WorkoutBuilderSection({
     }
   };
 
+  // Transform AI-processed workout data into workout builder format
+  const populateWorkoutBuilder = (processedWorkout: ProcessedWorkout) => {
+    try {
+      // Set workout metadata
+      if (processedWorkout.metadata.title) {
+        setWorkoutName(processedWorkout.metadata.title);
+      }
+      if (processedWorkout.metadata.difficulty) {
+        setWorkoutDifficulty(processedWorkout.metadata.difficulty);
+      }
+      if (processedWorkout.metadata.equipment) {
+        setWorkoutEquipment(processedWorkout.metadata.equipment);
+      }
+      if (processedWorkout.metadata.description) {
+        setWorkoutDescription(processedWorkout.metadata.description);
+      }
+      if (processedWorkout.metadata.duration) {
+        // Parse duration and set workout duration
+        const durationMatch =
+          processedWorkout.metadata.duration.match(/(\d+)\s*min/);
+        if (durationMatch) {
+          const minutes = parseInt(durationMatch[1]);
+          setWorkoutDuration({
+            hours: Math.floor(minutes / 60),
+            minutes: minutes % 60,
+          });
+        }
+      }
+
+      // Collect ALL exercises from all blocks (both matched and unmatched)
+      const allExercisesList: UnmatchedExercise[] = [];
+      const unmatchedExercisesList: UnmatchedExercise[] = [];
+      const exerciseMapping = new Map<string, string>(); // exercise name -> exercise id
+      const newExercisesMap = new Map<string, any>(); // exercise name -> new exercise data
+
+      // Collect all exercises from all blocks
+      processedWorkout.blocks.forEach((block) => {
+        block.exercises.forEach((exercise) => {
+          // Check if we haven't already added this exercise to the list
+          if (!allExercisesList.find((u) => u.name === exercise.name)) {
+            // Check if exercise exists in our library
+            const matchedExercise = exercises.find(
+              (e) =>
+                e.name.toLowerCase().includes(exercise.name.toLowerCase()) ||
+                exercise.name.toLowerCase().includes(e.name.toLowerCase())
+            );
+
+            // Add to all exercises list
+            allExercisesList.push({
+              name: exercise.name,
+              instructions: exercise.instructions,
+              suggestedMatches: exercises
+                .filter(
+                  (e) =>
+                    e.name
+                      .toLowerCase()
+                      .includes(exercise.name.toLowerCase()) ||
+                    exercise.name.toLowerCase().includes(e.name.toLowerCase())
+                )
+                .slice(0, 5),
+            });
+
+            if (!matchedExercise) {
+              // Add to unmatched list
+              unmatchedExercisesList.push({
+                name: exercise.name,
+                instructions: exercise.instructions,
+                suggestedMatches: exercises
+                  .filter(
+                    (e) =>
+                      e.name
+                        .toLowerCase()
+                        .includes(exercise.name.toLowerCase()) ||
+                      exercise.name.toLowerCase().includes(e.name.toLowerCase())
+                  )
+                  .slice(0, 5),
+              });
+            } else {
+              exerciseMapping.set(exercise.name, matchedExercise.id);
+            }
+          }
+        });
+      });
+
+      // Show the matching modal with ALL exercises (we'll auto-match inside the modal)
+      setUnmatchedExercises(allExercisesList);
+      setProcessedWorkout(processedWorkout);
+      setShowExerciseMatching(true);
+    } catch (error) {
+      console.error("Error populating workout builder:", error);
+      addToast({
+        type: "error",
+        message: "Failed to import workout. Please try again.",
+        duration: 4000,
+      });
+    }
+  };
+
+  const populateWorkoutWithMappings = (
+    processedWorkout: ProcessedWorkout,
+    exerciseMapping: Map<string, string>,
+    newExercisesMap: Map<string, any>
+  ) => {
+    try {
+      console.log("Exercise mapping:", Array.from(exerciseMapping.entries()));
+      console.log("New exercises map:", Array.from(newExercisesMap.entries()));
+      console.log("Processed workout blocks:", processedWorkout.blocks);
+      // Transform blocks to sessions
+      const transformedSessions: Session[] = processedWorkout.blocks
+        .map((block, index) => {
+          // Transform exercises to workout exercises, but only include matched ones
+          const workoutExercises: WorkoutExercise[] = block.exercises
+            .filter((exercise) => {
+              // Only include exercises that have mappings (matched or newly created)
+              const mappedExerciseId = exerciseMapping.get(exercise.name);
+              const newExercise = newExercisesMap.get(exercise.name);
+              const hasMapping = mappedExerciseId || newExercise;
+
+              if (!hasMapping) {
+                console.warn(
+                  `Exercise "${exercise.name}" has no mapping and will be skipped`
+                );
+              }
+
+              return hasMapping;
+            })
+            .map((exercise) => {
+              // Get the mapped exercise or new exercise
+              const mappedExerciseId = exerciseMapping.get(exercise.name);
+              const newExercise = newExercisesMap.get(exercise.name);
+
+              let matchedExercise: Exercise;
+
+              if (mappedExerciseId) {
+                // Use existing exercise from library
+                matchedExercise = exercises.find(
+                  (e) => e.id === mappedExerciseId
+                )!;
+              } else if (newExercise) {
+                // Use newly created exercise - find it in the updated exercises list
+                const createdExercise = exercises.find(
+                  (e) => e.name === newExercise.name
+                );
+                if (createdExercise) {
+                  matchedExercise = createdExercise;
+                } else {
+                  // Fallback to placeholder exercise
+                  matchedExercise = {
+                    id: `temp-${Date.now()}`,
+                    name: newExercise.name,
+                    video_url_1: null,
+                    video_url_2: null,
+                    image: null,
+                    difficulty: newExercise.difficulty,
+                    equipment: newExercise.equipment,
+                    exercise_type: newExercise.exercise_type,
+                    muscles_trained: null,
+                    instructions: newExercise.instructions,
+                    cues_and_tips: null,
+                    is_active: true,
+                    is_global: true,
+                    coach_id: null,
+                  };
+                }
+              } else {
+                // This should never happen due to the filter above, but just in case
+                throw new Error(
+                  `No mapping found for exercise: ${exercise.name}`
+                );
+              }
+
+              // Create exercise sets based on duration/rest
+              const sets: ExerciseSet[] = [];
+
+              if (exercise.duration) {
+                // Parse duration (e.g., "1 min", "40 sec")
+                const durationMatch =
+                  exercise.duration.match(/(\d+)\s*(min|sec)/);
+                if (durationMatch) {
+                  const value = parseInt(durationMatch[1]);
+                  const unit = durationMatch[2];
+                  const durationSeconds = unit === "min" ? value * 60 : value;
+
+                  sets.push({
+                    id: `set-${Date.now()}-${Math.random()}`,
+                    type: "normal",
+                    setNumber: 1,
+                    rest: durationSeconds,
+                    weight: "",
+                    reps: 0,
+                    notes: exercise.instructions || undefined,
+                  });
+                }
+              }
+
+              // If no duration, create a default set
+              if (sets.length === 0) {
+                sets.push({
+                  id: `set-${Date.now()}-${Math.random()}`,
+                  type: "normal",
+                  setNumber: 1,
+                  rest: 60,
+                  weight: "",
+                  reps: 0,
+                  notes: exercise.instructions || undefined,
+                });
+              }
+
+              return {
+                id: `we-${Date.now()}-${Math.random()}`,
+                exercise: matchedExercise,
+                sets,
+                instructions: exercise.instructions || "",
+              };
+            });
+
+          // Only create session if it has exercises
+          if (workoutExercises.length === 0) {
+            console.warn(
+              `Block "${block.name}" has no exercises after filtering, skipping`
+            );
+            return null;
+          }
+
+          // Map block type to valid database type
+          const mapBlockTypeToValidType = (type: string): SessionType => {
+            switch (type.toLowerCase()) {
+              case "normal":
+              case "regular":
+                return "normal";
+              case "circuit":
+              case "amrap":
+              case "interval":
+                return "circuit";
+              case "superset":
+                return "superset";
+              case "warmup":
+              case "warm-up":
+                return "warmup";
+              case "cooldown":
+              case "cool-down":
+                return "cooldown";
+              default:
+                console.warn(
+                  `Unknown block type "${type}", defaulting to "normal"`
+                );
+                return "normal";
+            }
+          };
+
+          return {
+            id: `session-${Date.now()}-${index}`,
+            type: mapBlockTypeToValidType(block.type),
+            name: block.name,
+            exercises: workoutExercises,
+          };
+        })
+        .filter((session): session is Session => session !== null);
+
+      // Set the sessions
+      console.log("Transformed sessions:", transformedSessions);
+      console.log("Transformed sessions length:", transformedSessions.length);
+
+      if (transformedSessions.length === 0) {
+        console.error(
+          "No sessions created after filtering - all exercises were unmatched"
+        );
+        addToast({
+          type: "error",
+          message:
+            "No exercises could be matched. Please try matching exercises manually.",
+          duration: 4000,
+        });
+        return;
+      }
+
+      setSessions(transformedSessions);
+
+      // Show success message
+      addToast({
+        type: "success",
+        message: "Workout imported successfully!",
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Error populating workout builder:", error);
+      addToast({
+        type: "error",
+        message: "Failed to import workout. Please try again.",
+        duration: 4000,
+      });
+    }
+  };
+
   return (
-    <div className="flex h-[calc(100vh-0px)] bg-gray-50">
+    <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="w-80 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-6 border-b border-gray-200">
@@ -2107,7 +2423,11 @@ export default function WorkoutBuilderSection({
                   <div className="w-full h-16 bg-gray-900 rounded relative mb-2 flex-shrink-0">
                     <img
                       className="w-full h-full object-cover rounded"
-                      src={getThumbnailUrl(exercise.video_url_1)}
+                      src={
+                        exercise.video_url_1
+                          ? getThumbnailUrl(exercise.video_url_1)
+                          : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' fill='%236b7280' text-anchor='middle' dy='.3em'%3EExercise%3C/text%3E%3C/svg%3E"
+                      }
                       alt={exercise.name}
                       onError={(e) => {
                         // Fallback to placeholder if image fails to load
@@ -2184,6 +2504,29 @@ export default function WorkoutBuilderSection({
 
               {/* Action buttons */}
               <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setShowPdfUpload(true)}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                  <span>Import from PDF</span>
+                  <span className="text-xs bg-gradient-to-r from-purple-500 to-blue-500 text-white px-2 py-1 rounded-full">
+                    ✨ AI
+                  </span>
+                </button>
+
                 <button
                   onClick={() =>
                     setIsWorkoutDetailsExpanded(!isWorkoutDetailsExpanded)
@@ -2467,7 +2810,7 @@ export default function WorkoutBuilderSection({
           )}
         </div>
         <div className="flex-1 flex p-6 overflow-y-auto">
-          <div className="w-full max-w-3xl mx-auto space-y-6">
+          <div className="w-full max-w-3xl mx-auto space-y-6 h-full">
             {loadingWorkout ? (
               <div className="flex items-center justify-center py-20">
                 <div className="flex items-center space-x-3">
@@ -2483,9 +2826,13 @@ export default function WorkoutBuilderSection({
                   <div className="w-16 h-16 bg-gray-900 rounded-lg flex-shrink-0">
                     <img
                       className="w-full h-full object-cover rounded-lg"
-                      src={getThumbnailUrl(
+                      src={
                         selectedWorkoutExercise.exercise.video_url_1
-                      )}
+                          ? getThumbnailUrl(
+                              selectedWorkoutExercise.exercise.video_url_1
+                            )
+                          : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' fill='%236b7280' text-anchor='middle' dy='.3em'%3EExercise%3C/text%3E%3C/svg%3E"
+                      }
                       alt={selectedWorkoutExercise.exercise.name}
                       onError={(e) => {
                         e.currentTarget.src =
@@ -2695,9 +3042,13 @@ export default function WorkoutBuilderSection({
                   <div className="w-16 h-16 bg-gray-900 rounded-lg flex-shrink-0">
                     <img
                       className="w-full h-full object-cover rounded-lg"
-                      src={getThumbnailUrl(
+                      src={
                         workoutExercise.exercise.video_url_1
-                      )}
+                          ? getThumbnailUrl(
+                              workoutExercise.exercise.video_url_1
+                            )
+                          : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' fill='%236b7280' text-anchor='middle' dy='.3em'%3EExercise%3C/text%3E%3C/svg%3E"
+                      }
                       alt={workoutExercise.exercise.name}
                       onError={(e) => {
                         e.currentTarget.src =
@@ -2887,9 +3238,13 @@ export default function WorkoutBuilderSection({
                           <div className="w-16 h-16 bg-gray-900 rounded-lg flex-shrink-0">
                             <img
                               className="w-full h-full object-cover rounded-lg"
-                              src={getThumbnailUrl(
+                              src={
                                 exercise.exercise.video_url_1
-                              )}
+                                  ? getThumbnailUrl(
+                                      exercise.exercise.video_url_1
+                                    )
+                                  : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' fill='%236b7280' text-anchor='middle' dy='.3em'%3EExercise%3C/text%3E%3C/svg%3E"
+                              }
                               alt={exercise.exercise.name}
                               onError={(e) => {
                                 e.currentTarget.src =
@@ -3384,6 +3739,75 @@ export default function WorkoutBuilderSection({
           </div>
         </div>
       )}
+
+      {/* PDF Upload Modal */}
+      <PdfUploadModal
+        isOpen={showPdfUpload}
+        onClose={() => setShowPdfUpload(false)}
+        onWorkoutProcessed={(workoutData) => {
+          setProcessedWorkout(workoutData);
+          setShowPdfUpload(false);
+          // Process the workout and show exercise matching if needed
+          populateWorkoutBuilder(workoutData);
+        }}
+      />
+
+      {/* Exercise Matching Modal */}
+      <ExerciseMatchingModal
+        isOpen={showExerciseMatching}
+        unmatchedExercises={unmatchedExercises}
+        onMatch={(exerciseName, matchedExerciseId) => {
+          // Handle exercise matching
+          console.log(
+            `Matched ${exerciseName} with exercise ID ${matchedExerciseId}`
+          );
+        }}
+        onAddNew={(newExercise, exerciseId) => {
+          // Handle adding new exercise
+          console.log(
+            "Adding new exercise:",
+            newExercise,
+            "with ID:",
+            exerciseId
+          );
+          // Refresh the exercises list to include the new exercise
+          const fetchExercises = async () => {
+            try {
+              const supabase = createClient();
+              const { data, error } = await supabase
+                .from("exercise_library")
+                .select("*")
+                .eq("is_active", true)
+                .order("name", { ascending: true });
+
+              if (error) {
+                console.error("Error fetching exercises:", error);
+                return;
+              }
+
+              setExercises(data || []);
+              setFilteredExercises(data || []);
+            } catch (error) {
+              console.error("Error fetching exercises:", error);
+            }
+          };
+          fetchExercises();
+        }}
+        onComplete={(exerciseMapping, newExercisesMap) => {
+          setShowExerciseMatching(false);
+          // Populate the workout builder with only matched exercises
+          if (processedWorkout) {
+            populateWorkoutWithMappings(
+              processedWorkout,
+              exerciseMapping,
+              newExercisesMap
+            );
+          }
+        }}
+        onClose={() => {
+          setShowExerciseMatching(false);
+        }}
+      />
     </div>
   );
 }
