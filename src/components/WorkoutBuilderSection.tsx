@@ -26,6 +26,16 @@ import {
 } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 // Database types
 type Workout = Tables<"workouts">;
@@ -55,6 +65,7 @@ const DumbbellIcon = () => (
     />
   </svg>
 );
+
 const PlayIcon = () => (
   <svg className="w-3 h-3" fill="none" stroke="white" viewBox="0 0 384 512">
     <path
@@ -63,6 +74,7 @@ const PlayIcon = () => (
     />
   </svg>
 );
+
 const FilterIcon = () => (
   <svg
     className="w-4 h-4"
@@ -131,6 +143,7 @@ const SupersetIcon = () => (
     />
   </svg>
 );
+
 // Circuits icon
 const CircuitIcon = () => (
   <svg
@@ -148,9 +161,44 @@ const CircuitIcon = () => (
     />
   </svg>
 );
+
+const WarmupIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-5 h-5 mr-2"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M13 10V3L4 14h7v7l9-11h-7z"
+    />
+  </svg>
+);
+
+const CooldownIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-5 h-5 mr-2"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+    />
+  </svg>
+);
+
 const BarsIcon = () => (
   <svg
-    className="w-4 h-4"
+    className="w-4 h-4 mr-2"
     fill="none"
     stroke="currentColor"
     viewBox="0 0 448 512"
@@ -199,7 +247,13 @@ const SortableSession = ({
           ? "bg-gray-100 border-gray-300"
           : session.type === "superset"
           ? "bg-yellow-100 border-yellow-300"
-          : "bg-purple-100 border-purple-300"
+          : session.type === "circuit"
+          ? "bg-purple-100 border-purple-300"
+          : session.type === "warmup"
+          ? "bg-orange-100 border-orange-300"
+          : session.type === "cooldown"
+          ? "bg-blue-100 border-blue-300"
+          : "bg-gray-100 border-gray-300"
       } ${isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:shadow-sm"} ${
         isDragging ? "opacity-50" : ""
       }`}
@@ -212,6 +266,10 @@ const SortableSession = ({
           <SupersetIcon />
         ) : session.type === "circuit" ? (
           <CircuitIcon />
+        ) : session.type === "warmup" ? (
+          <WarmupIcon />
+        ) : session.type === "cooldown" ? (
+          <CooldownIcon />
         ) : (
           <BarsIcon />
         )}
@@ -221,7 +279,13 @@ const SortableSession = ({
               ? "text-gray-800"
               : session.type === "superset"
               ? "text-yellow-800"
-              : "text-purple-800"
+              : session.type === "circuit"
+              ? "text-purple-800"
+              : session.type === "warmup"
+              ? "text-orange-800"
+              : session.type === "cooldown"
+              ? "text-blue-800"
+              : "text-gray-800"
           }`}
         >
           {session.name}
@@ -430,7 +494,7 @@ export default function WorkoutBuilderSection({
   } | null>(null);
   const [customDuration, setCustomDuration] = useState(5);
 
-  // PDF Import state
+  // State for PDF upload and exercise matching
   const [showPdfUpload, setShowPdfUpload] = useState(false);
   const [showExerciseMatching, setShowExerciseMatching] = useState(false);
   const [processedWorkout, setProcessedWorkout] =
@@ -438,6 +502,11 @@ export default function WorkoutBuilderSection({
   const [unmatchedExercises, setUnmatchedExercises] = useState<
     UnmatchedExercise[]
   >([]);
+
+  // State for AI workout generation
+  const [showAiWorkoutModal, setShowAiWorkoutModal] = useState(false);
+  const [aiWorkoutText, setAiWorkoutText] = useState("");
+  const [isGeneratingWorkout, setIsGeneratingWorkout] = useState(false);
 
   // Workout state
   const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(null);
@@ -2017,59 +2086,59 @@ export default function WorkoutBuilderSection({
   };
 
   // Delete workout
-  const deleteWorkout = async (workoutId: string) => {
-    if (!user) {
-      console.error("User not authenticated");
-      return false;
-    }
+  // const deleteWorkout = async (workoutId: string) => {
+  //   if (!user) {
+  //     console.error("User not authenticated");
+  //     return false;
+  //   }
 
-    try {
-      setSaving(true);
+  //   try {
+  //     setSaving(true);
 
-      // Delete exercise sets
-      const { error: deleteSetsError } = await supabase
-        .from("exercise_sets")
-        .delete()
-        .in(
-          "workout_block_id",
-          workoutBlocks.map((b) => b.id)
-        );
+  //     // Delete exercise sets
+  //     const { error: deleteSetsError } = await supabase
+  //       .from("exercise_sets")
+  //       .delete()
+  //       .in(
+  //         "workout_block_id",
+  //         workoutBlocks.map((b) => b.id)
+  //       );
 
-      // Delete workout blocks
-      const { error: deleteBlocksError } = await supabase
-        .from("workout_blocks")
-        .delete()
-        .eq("workout_id", workoutId);
+  //     // Delete workout blocks
+  //     const { error: deleteBlocksError } = await supabase
+  //       .from("workout_blocks")
+  //       .delete()
+  //       .eq("workout_id", workoutId);
 
-      // Delete workout
-      const { error: deleteWorkoutError } = await supabase
-        .from("workouts")
-        .delete()
-        .eq("id", workoutId);
+  //     // Delete workout
+  //     const { error: deleteWorkoutError } = await supabase
+  //       .from("workouts")
+  //       .delete()
+  //       .eq("id", workoutId);
 
-      if (deleteSetsError || deleteBlocksError || deleteWorkoutError) {
-        console.error(
-          "Error deleting workout:",
-          deleteSetsError || deleteBlocksError || deleteWorkoutError
-        );
-        return false;
-      }
+  //     if (deleteSetsError || deleteBlocksError || deleteWorkoutError) {
+  //       console.error(
+  //         "Error deleting workout:",
+  //         deleteSetsError || deleteBlocksError || deleteWorkoutError
+  //       );
+  //       return false;
+  //     }
 
-      // Reset state
-      setCurrentWorkout(null);
-      setWorkoutBlocks([]);
-      setExerciseSets([]);
-      setSessions([]);
-      setWorkoutName("Workout Name");
+  //     // Reset state
+  //     setCurrentWorkout(null);
+  //     setWorkoutBlocks([]);
+  //     setExerciseSets([]);
+  //     setSessions([]);
+  //     setWorkoutName("Workout Name");
 
-      return true;
-    } catch (error) {
-      console.error("Error deleting workout:", error);
-      return false;
-    } finally {
-      setSaving(false);
-    }
-  };
+  //     return true;
+  //   } catch (error) {
+  //     console.error("Error deleting workout:", error);
+  //     return false;
+  //   } finally {
+  //     setSaving(false);
+  //   }
+  // };
 
   // Transform AI-processed workout data into workout builder format
   const populateWorkoutBuilder = (processedWorkout: ProcessedWorkout) => {
@@ -2246,23 +2315,43 @@ export default function WorkoutBuilderSection({
               const sets: ExerciseSet[] = [];
 
               if (exercise.duration) {
-                // Parse duration (e.g., "1 min", "40 sec")
-                const durationMatch =
-                  exercise.duration.match(/(\d+)\s*(min|sec)/);
-                if (durationMatch) {
-                  const value = parseInt(durationMatch[1]);
-                  const unit = durationMatch[2];
-                  const durationSeconds = unit === "min" ? value * 60 : value;
+                // Parse reps from duration (e.g., "12 reps", "4 reps", "20 reps")
+                const repsMatch = exercise.duration.match(/(\d+)\s*reps?/i);
+                if (repsMatch) {
+                  const reps = parseInt(repsMatch[1]);
+
+                  // Parse weight if mentioned (e.g., "70% 1RM")
+                  const weightMatch = exercise.duration.match(/(\d+%)\s*1RM/i);
+                  const weight = weightMatch ? weightMatch[1] : "";
 
                   sets.push({
                     id: `set-${Date.now()}-${Math.random()}`,
                     type: "normal",
                     setNumber: 1,
-                    rest: durationSeconds,
-                    weight: "",
-                    reps: 0,
+                    rest: 60, // Default rest
+                    weight: weight,
+                    reps: reps,
                     notes: exercise.instructions || undefined,
                   });
+                } else {
+                  // Parse duration (e.g., "1 min", "40 sec")
+                  const durationMatch =
+                    exercise.duration.match(/(\d+)\s*(min|sec)/);
+                  if (durationMatch) {
+                    const value = parseInt(durationMatch[1]);
+                    const unit = durationMatch[2];
+                    const durationSeconds = unit === "min" ? value * 60 : value;
+
+                    sets.push({
+                      id: `set-${Date.now()}-${Math.random()}`,
+                      type: "normal",
+                      setNumber: 1,
+                      rest: durationSeconds,
+                      weight: "",
+                      reps: 0,
+                      notes: exercise.instructions || undefined,
+                    });
+                  }
                 }
               }
 
@@ -2297,21 +2386,32 @@ export default function WorkoutBuilderSection({
 
           // Map block type to valid database type
           const mapBlockTypeToValidType = (type: string): SessionType => {
+            console.log(`Mapping block type: "${type}"`);
+
             switch (type.toLowerCase()) {
               case "normal":
               case "regular":
+                console.log(`  → Mapped to "normal"`);
                 return "normal";
               case "circuit":
               case "amrap":
-              case "interval":
+                console.log(`  → Mapped to "circuit"`);
                 return "circuit";
+              case "interval":
+                // Intervals can be either normal or circuit depending on context
+                // For now, default to normal unless it's clearly a circuit
+                console.log(`  → Mapped to "normal" (interval)`);
+                return "normal";
               case "superset":
+                console.log(`  → Mapped to "superset"`);
                 return "superset";
               case "warmup":
               case "warm-up":
+                console.log(`  → Mapped to "warmup"`);
                 return "warmup";
               case "cooldown":
               case "cool-down":
+                console.log(`  → Mapped to "cooldown"`);
                 return "cooldown";
               default:
                 console.warn(
@@ -2320,6 +2420,12 @@ export default function WorkoutBuilderSection({
                 return "normal";
             }
           };
+
+          console.log(
+            `Creating session for block: "${block.name}" with type: "${block.type}"`
+          );
+          const mappedType = mapBlockTypeToValidType(block.type);
+          console.log(`Final mapped type: "${mappedType}"`);
 
           return {
             id: `session-${Date.now()}-${index}`,
@@ -2362,6 +2468,54 @@ export default function WorkoutBuilderSection({
         message: "Failed to import workout. Please try again.",
         duration: 4000,
       });
+    }
+  };
+
+  const handleGenerateWorkout = async () => {
+    if (!aiWorkoutText.trim()) return;
+
+    try {
+      setIsGeneratingWorkout(true);
+
+      const response = await fetch("/api/generate-workout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          description: aiWorkoutText,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate workout");
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Use the same workflow as PDF import
+        populateWorkoutBuilder(data.data);
+        setShowAiWorkoutModal(false);
+        setAiWorkoutText("");
+        addToast({
+          type: "success",
+          message:
+            "Workout generated successfully! Please review and map exercises.",
+          duration: 4000,
+        });
+      } else {
+        throw new Error(data.error || "Failed to generate workout");
+      }
+    } catch (error) {
+      console.error("Error generating workout:", error);
+      addToast({
+        type: "error",
+        message: "Failed to generate workout. Please try again.",
+        duration: 4000,
+      });
+    } finally {
+      setIsGeneratingWorkout(false);
     }
   };
 
@@ -2481,7 +2635,8 @@ export default function WorkoutBuilderSection({
         <div className="bg-white border-b border-gray-200">
           {/* Header with workout name and expand/collapse */}
           <div className="p-6 border-b border-gray-100">
-            <div className="flex items-center justify-between">
+            {/* First row: Workout title and action buttons */}
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3 flex-1">
                 <input
                   type="text"
@@ -2504,29 +2659,6 @@ export default function WorkoutBuilderSection({
 
               {/* Action buttons */}
               <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => setShowPdfUpload(true)}
-                  className="flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                  <span>Import from PDF</span>
-                  <span className="text-xs bg-gradient-to-r from-purple-500 to-blue-500 text-white px-2 py-1 rounded-full">
-                    ✨ AI
-                  </span>
-                </button>
-
                 <button
                   onClick={() =>
                     setIsWorkoutDetailsExpanded(!isWorkoutDetailsExpanded)
@@ -2567,7 +2699,7 @@ export default function WorkoutBuilderSection({
                     : "Save Workout"}
                 </button>
 
-                {currentWorkout && (
+                {/* {currentWorkout && (
                   <button
                     onClick={() => deleteWorkout(currentWorkout.id)}
                     disabled={saving}
@@ -2575,8 +2707,57 @@ export default function WorkoutBuilderSection({
                   >
                     {saving ? "Deleting..." : "Delete"}
                   </button>
-                )}
+                )} */}
               </div>
+            </div>
+
+            {/* Second row: AI-powered buttons */}
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setShowPdfUpload(true)}
+                className="flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors border border-blue-200"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+                <span>Import from PDF</span>
+                <span className="text-xs bg-gradient-to-r from-purple-500 to-blue-500 text-white px-2 py-1 rounded-full">
+                  ✨ AI
+                </span>
+              </button>
+
+              <button
+                onClick={() => setShowAiWorkoutModal(true)}
+                className="flex items-center space-x-2 px-4 py-2 text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+                <span>Generate with AI</span>
+                <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full">
+                  🎤 Voice
+                </span>
+              </button>
             </div>
           </div>
 
@@ -3147,7 +3328,13 @@ export default function WorkoutBuilderSection({
                     ? "bg-white border-gray-200"
                     : session.type === "superset"
                     ? "bg-yellow-100 border-yellow-300"
-                    : "bg-purple-100 border-purple-300"
+                    : session.type === "circuit"
+                    ? "bg-purple-100 border-purple-300"
+                    : session.type === "warmup"
+                    ? "bg-orange-100 border-orange-300"
+                    : session.type === "cooldown"
+                    ? "bg-blue-100 border-blue-300"
+                    : "bg-white border-gray-200"
                 } ${
                   selectedSessionId === session.id
                     ? "ring-2 ring-blue-500 shadow-lg"
@@ -3160,6 +3347,10 @@ export default function WorkoutBuilderSection({
                     <SupersetIcon />
                   ) : session.type === "circuit" ? (
                     <CircuitIcon />
+                  ) : session.type === "warmup" ? (
+                    <WarmupIcon />
+                  ) : session.type === "cooldown" ? (
+                    <CooldownIcon />
                   ) : (
                     <BarsIcon />
                   )}
@@ -3169,7 +3360,13 @@ export default function WorkoutBuilderSection({
                         ? "text-gray-800"
                         : session.type === "superset"
                         ? "text-yellow-800"
-                        : "text-purple-800"
+                        : session.type === "circuit"
+                        ? "text-purple-800"
+                        : session.type === "warmup"
+                        ? "text-orange-800"
+                        : session.type === "cooldown"
+                        ? "text-blue-800"
+                        : "text-gray-800"
                     }`}
                   >
                     {session.name}
@@ -3239,6 +3436,7 @@ export default function WorkoutBuilderSection({
                             <img
                               className="w-full h-full object-cover rounded-lg"
                               src={
+                                exercise.exercise &&
                                 exercise.exercise.video_url_1
                                   ? getThumbnailUrl(
                                       exercise.exercise.video_url_1
@@ -3523,26 +3721,41 @@ export default function WorkoutBuilderSection({
             </span>
           </div>
         </div>
-        <div className="flex flex-col space-y-2 mb-6">
+        <div className="grid grid-cols-2 gap-2 mb-6">
           <button
-            className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+            className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
             onClick={() => addSession("normal")}
           >
+            <BarsIcon />
             Normal
           </button>
           <button
-            className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+            className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
             onClick={() => addSession("superset")}
           >
             <SupersetIcon />
             Superset
           </button>
           <button
-            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+            className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
             onClick={() => addSession("circuit")}
           >
             <CircuitIcon />
             Circuit
+          </button>
+          <button
+            className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+            onClick={() => addSession("warmup")}
+          >
+            <WarmupIcon />
+            Warmup
+          </button>
+          <button
+            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+            onClick={() => addSession("cooldown")}
+          >
+            <CooldownIcon />
+            Cooldown
           </button>
         </div>
 
@@ -3808,6 +4021,88 @@ export default function WorkoutBuilderSection({
           setShowExerciseMatching(false);
         }}
       />
+
+      {/* AI Workout Generation Modal */}
+      {showAiWorkoutModal && (
+        <Dialog open={showAiWorkoutModal} onOpenChange={setShowAiWorkoutModal}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <span>Generate Workout with AI</span>
+                <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full">
+                  🎤 Voice
+                </span>
+              </DialogTitle>
+              <DialogDescription>
+                Describe your workout in natural language. For example: "Add
+                pull-ups the first set is 20 reps the second set is 15 reps the
+                third set is 10 reps"
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Workout Description
+                </label>
+                <Textarea
+                  value={aiWorkoutText}
+                  onChange={(e) => setAiWorkoutText(e.target.value)}
+                  placeholder="Describe your workout here... (e.g., 'Add pull-ups the first set is 20 reps the second set is 15 reps the third set is 10 reps')"
+                  rows={6}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-blue-800 mb-2">
+                  💡 Tips for better results:
+                </h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• Be specific about exercises, sets, and reps</li>
+                  <li>• Include rest periods if needed</li>
+                  <li>• Mention equipment or difficulty level</li>
+                  <li>
+                    • You can describe multiple exercises in one description
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAiWorkoutModal(false);
+                  setAiWorkoutText("");
+                }}
+                disabled={isGeneratingWorkout}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleGenerateWorkout}
+                disabled={!aiWorkoutText.trim() || isGeneratingWorkout}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isGeneratingWorkout ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Generating...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span>Generate Workout</span>
+                    <span className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded-full text-gray-700">
+                      ✨ AI
+                    </span>
+                  </div>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -76,22 +76,29 @@ Please extract and structure the following information:
 2. Workout Blocks/Sections:
    - Each section should be a block with:
      - name: Section name (e.g., "EMOM #1 - Interval", "Full Body Warm Up")
-     - type: Section type ("normal", "superset", "circuit")
-       * IMPORTANT: Analyze the exercise pattern to intelligently determine the type:
+     - type: Section type ("normal", "superset", "circuit", "warmup", "cooldown")
+       * CRITICAL: Carefully analyze the exercise pattern to determine the correct type:
          - "normal": Each exercise appears only once, done sequentially without repetition
          - "circuit": Same exercises repeat in rounds/cycles, or AMRAP style repetition
          - "superset": Two exercises paired together, done back-to-back
          - "warmup": Warm-up exercises at the beginning
          - "cooldown": Cool-down exercises at the end
-       * Look for these patterns to determine type:
-         - EMOM (time-based intervals) → usually "normal"
-         - AMRAP (repetition-based) → usually "circuit" 
-         - Interval (fixed work/rest with repetition) → usually "circuit"
+       * Look for these specific patterns to determine type:
+         - EMOM (Every Minute On the Minute) → "normal" (time-based, not repeating)
+         - AMRAP (As Many Rounds As Possible) → "circuit" (repetition-based)
+         - "EO #X - Interval" or "Interval" blocks → "normal" (time-based intervals, not repeating)
+         - Interval workouts with repeating exercises → "circuit"
+         - Interval workouts with unique exercises → "normal"
          - Repeating exercise sequences → "circuit"
          - Paired exercises → "superset"
          - Warm-up sections → "warmup"
          - Cool-down sections → "cooldown"
-         - Regular exercises → "normal"
+         - Regular exercises done once → "normal"
+       * CRITICAL: Analyze if exercises repeat in the interval. If each exercise appears only once, use "normal"
+       * IMPORTANT: Do NOT default to "circuit" unless there is clear evidence of repetition
+       * NOTE: "EO" (Every Other) intervals are time-based like EMOM, so use "normal"
+       * EXAMPLE: If a block named "EO #1 - Interval" has exercises [A, B, C] and each appears only once, it's "normal"
+       * EXAMPLE: If a block has exercises [A, B, C, A, B, C] (repeating), it's "circuit"
        * Count exercise repetitions and analyze sequence patterns to make the determination
      - duration: Section duration (e.g., "3:45 mins")
      - exercises: Array of exercises in this section
@@ -119,6 +126,11 @@ Please extract and structure the following information:
 6. Handle repeating exercises:
    - If the same exercise appears multiple times in sequence, it indicates a circuit
    - Track exercise repetition patterns to determine workout structure
+   - For intervals: Check if exercises repeat within the interval period
+   - For EMOM: Each exercise typically appears only once per minute, so use "normal"
+   - For AMRAP: Exercises repeat in rounds, so use "circuit"
+   - For "EO" (Every Other) intervals: These are time-based like EMOM, each exercise appears once per interval, so use "normal"
+   - IMPORTANT: Look at the exercise list within each block. If each exercise appears only once in the list, it's "normal"
 
 Return the data in this exact JSON structure:
 {
@@ -174,6 +186,8 @@ Ensure the response is valid JSON and follows the exact structure above.`;
       throw new Error("No response from OpenAI");
     }
 
+    console.log("AI Response for PDF:", responseText);
+
     // Parse the JSON response
     let parsedData;
     try {
@@ -187,6 +201,21 @@ Ensure the response is valid JSON and follows the exact structure above.`;
     if (!parsedData.metadata || !parsedData.blocks) {
       throw new Error("Invalid workout structure from AI");
     }
+
+    // Validate and log block types
+    console.log("Workout blocks found:", parsedData.blocks.length);
+    parsedData.blocks.forEach((block: any, index: number) => {
+      console.log(
+        `Block ${index + 1}: "${block.name}" - Type: "${block.type}"`
+      );
+      if (block.type === "circuit") {
+        console.log(
+          `  → Circuit block "${block.name}" has ${
+            block.exercises?.length || 0
+          } exercises`
+        );
+      }
+    });
 
     return NextResponse.json({
       success: true,

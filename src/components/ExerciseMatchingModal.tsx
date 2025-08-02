@@ -79,8 +79,6 @@ export const ExerciseMatchingModal: React.FC<ExerciseMatchingModalProps> = ({
           return;
         }
 
-        console.log("Fetched exercises:", data?.length || 0);
-        console.log("Exercise names:", data?.map((e) => e.name) || []);
         setExercises(data || []);
         setFilteredExercises(data || []);
       } catch (error) {
@@ -95,90 +93,202 @@ export const ExerciseMatchingModal: React.FC<ExerciseMatchingModalProps> = ({
     }
   }, [isOpen, supabase]);
 
-  // Matching strategies function
+  // Dynamic exercise matching function
   const findMatches = (exerciseName: string): Exercise[] => {
     const normalizedName = exerciseName.toLowerCase().trim();
     const matches: Exercise[] = [];
 
-    console.log("Looking for matches for:", exerciseName);
-    console.log("Normalized name:", normalizedName);
-    console.log("Available exercises:", exercises.length);
-
     exercises.forEach((exercise) => {
       const exerciseNameLower = exercise.name.toLowerCase();
+      let matchScore = 0;
+      let matchReason = "";
 
-      // 1. Exact Match
+      // 1. Exact Match (highest score)
       if (exerciseNameLower === normalizedName) {
-        matches.unshift(exercise); // Prioritize exact matches
-        return;
+        matchScore = 100;
+        matchReason = "exact";
       }
 
-      // 2. Fuzzy Match (contains)
-      if (
-        exerciseNameLower.includes(normalizedName) ||
-        normalizedName.includes(exerciseNameLower)
-      ) {
-        matches.push(exercise);
-        return;
-      }
-
-      // 3. Synonym Match - handle common abbreviations
-      const synonyms = {
-        bb: "barbell",
-        db: "dumbbell",
-        bw: "bodyweight",
-        assisted: "assisted",
-        "single leg": "single leg",
-        "right leg": "right leg",
-        "left leg": "left leg",
+      // 2. Dynamic Normalization - remove all non-alphanumeric characters and suffixes
+      const normalizeExerciseName = (name: string) => {
+        return name
+          .replace(/[^a-zA-Z0-9]/g, "") // Remove ALL non-alphanumeric characters
+          .replace(/(s|es|ing|ed)$/g, "") // Remove common suffixes
+          .toLowerCase();
       };
 
-      let processedName = normalizedName;
-      Object.entries(synonyms).forEach(([abbr, full]) => {
-        processedName = processedName.replace(new RegExp(abbr, "gi"), full);
-      });
+      const normalizedInput = normalizeExerciseName(normalizedName);
+      const normalizedExercise = normalizeExerciseName(exerciseNameLower);
 
-      if (
-        exerciseNameLower.includes(processedName) ||
-        processedName.includes(exerciseNameLower)
-      ) {
-        matches.push(exercise);
-        return;
+      if (normalizedInput === normalizedExercise && matchScore < 90) {
+        matchScore = 90;
+        matchReason = "normalized";
       }
 
-      // 4. Equipment Match - check if exercise name without equipment matches
-      const equipmentTerms = [
-        "barbell",
-        "dumbbell",
-        "bodyweight",
-        "assisted",
-        "machine",
-        "cable",
-        "kettlebell",
-      ];
-      const nameWithoutEquipment = exerciseNameLower
-        .replace(new RegExp(`\\b(${equipmentTerms.join("|")})\\b`, "gi"), "")
-        .trim();
-      const exerciseWithoutEquipment = exerciseNameLower
-        .replace(new RegExp(`\\b(${equipmentTerms.join("|")})\\b`, "gi"), "")
-        .trim();
+      // 3. Contains Match - check if one contains the other
+      if (matchScore < 80) {
+        if (
+          exerciseNameLower.includes(normalizedName) ||
+          normalizedName.includes(exerciseNameLower)
+        ) {
+          matchScore = 80;
+          matchReason = "contains";
+        }
+      }
 
-      if (
-        nameWithoutEquipment &&
-        exerciseWithoutEquipment &&
-        (nameWithoutEquipment.includes(exerciseWithoutEquipment) ||
-          exerciseWithoutEquipment.includes(nameWithoutEquipment))
-      ) {
-        matches.push(exercise);
-        return;
+      // 4. Substring Match - check if normalized versions contain each other
+      if (matchScore < 75) {
+        if (
+          normalizedExercise.includes(normalizedInput) ||
+          normalizedInput.includes(normalizedExercise)
+        ) {
+          matchScore = 75;
+          matchReason = "substring";
+        }
+      }
+
+      // 5. Word-based Match - check if key words match
+      if (matchScore < 70) {
+        const inputWords = normalizedName.split(/\s+/);
+        const exerciseWords = exerciseNameLower.split(/\s+/);
+
+        const inputKeyWords = inputWords.filter(
+          (word) =>
+            word.length > 2 &&
+            ![
+              "the",
+              "and",
+              "for",
+              "with",
+              "using",
+              "exercise",
+              "movement",
+            ].includes(word)
+        );
+        const exerciseKeyWords = exerciseWords.filter(
+          (word) =>
+            word.length > 2 &&
+            ![
+              "the",
+              "and",
+              "for",
+              "with",
+              "using",
+              "exercise",
+              "movement",
+            ].includes(word)
+        );
+
+        const matchingWords = inputKeyWords.filter((word) =>
+          exerciseKeyWords.some(
+            (exerciseWord) =>
+              exerciseWord.includes(word) || word.includes(exerciseWord)
+          )
+        );
+
+        if (
+          matchingWords.length > 0 &&
+          matchingWords.length >=
+            Math.min(inputKeyWords.length, exerciseKeyWords.length) * 0.6
+        ) {
+          matchScore = 70;
+          matchReason = "word-based";
+        }
+      }
+
+      // 6. Equipment-based Match - check if exercise without equipment matches
+      if (matchScore < 60) {
+        const equipmentTerms = [
+          "barbell",
+          "dumbbell",
+          "bodyweight",
+          "assisted",
+          "machine",
+          "cable",
+          "kettlebell",
+          "resistance",
+          "band",
+          "weighted",
+        ];
+
+        const removeEquipment = (name: string) => {
+          return name
+            .replace(
+              new RegExp(`\\b(${equipmentTerms.join("|")})\\b`, "gi"),
+              ""
+            )
+            .trim()
+            .replace(/\s+/g, " ");
+        };
+
+        const inputWithoutEquipment = removeEquipment(normalizedName);
+        const exerciseWithoutEquipment = removeEquipment(exerciseNameLower);
+
+        if (
+          inputWithoutEquipment &&
+          exerciseWithoutEquipment &&
+          (inputWithoutEquipment.includes(exerciseWithoutEquipment) ||
+            exerciseWithoutEquipment.includes(inputWithoutEquipment))
+        ) {
+          matchScore = 60;
+          matchReason = "equipment-based";
+        }
+      }
+
+      // 7. Levenshtein Distance for fuzzy matching
+      if (matchScore < 50) {
+        const calculateDistance = (str1: string, str2: string): number => {
+          const matrix = Array(str2.length + 1)
+            .fill(null)
+            .map(() => Array(str1.length + 1).fill(null));
+
+          for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+          for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+
+          for (let j = 1; j <= str2.length; j++) {
+            for (let i = 1; i <= str1.length; i++) {
+              const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+              matrix[j][i] = Math.min(
+                matrix[j][i - 1] + 1,
+                matrix[j - 1][i] + 1,
+                matrix[j - 1][i - 1] + indicator
+              );
+            }
+          }
+          return matrix[str2.length][str1.length];
+        };
+
+        const distance = calculateDistance(normalizedName, exerciseNameLower);
+        const maxLength = Math.max(
+          normalizedName.length,
+          exerciseNameLower.length
+        );
+        const similarity = 1 - distance / maxLength;
+
+        if (similarity > 0.7) {
+          matchScore = 50;
+          matchReason = "fuzzy";
+        }
+      }
+
+      // Add to matches if score is high enough
+      if (matchScore >= 50) {
+        matches.push({
+          ...exercise,
+          matchScore,
+          matchReason,
+        } as Exercise & { matchScore: number; matchReason: string });
+      } else {
+        console.log(`  → No match (score: ${matchScore})`);
       }
     });
 
-    // Remove duplicates and return top matches
-    return [...new Map(matches.map((item) => [item.id, item])).values()].slice(
-      0,
-      5
-    );
+    // Sort by match score (highest first) and return top matches
+    return matches
+      .sort(
+        (a, b) => ((b as any).matchScore || 0) - ((a as any).matchScore || 0)
+      )
+      .slice(0, 5);
   };
 
   // Auto-match exercises on initial load
@@ -193,20 +303,14 @@ export const ExerciseMatchingModal: React.FC<ExerciseMatchingModalProps> = ({
         // Find matches for this exercise
         const suggestedMatches = findMatches(unmatchedExercise.name);
 
-        // Auto-select exact matches
-        const exactMatch = suggestedMatches.find(
-          (match) =>
-            match.name.toLowerCase() === unmatchedExercise.name.toLowerCase()
-        );
+        // Auto-select high-confidence matches based on scoring
+        const highConfidenceMatch = suggestedMatches.find((match) => {
+          const matchScore = (match as any).matchScore || 0;
+          return matchScore >= 70; // Auto-select matches with 70+ score (more aggressive)
+        });
 
-        if (exactMatch) {
-          console.log(
-            "Auto-selecting exact match:",
-            exactMatch.name,
-            "for",
-            unmatchedExercise.name
-          );
-          handleMatch(unmatchedExercise.name, exactMatch.id);
+        if (highConfidenceMatch) {
+          handleMatch(unmatchedExercise.name, highConfidenceMatch.id);
         }
       });
     }
