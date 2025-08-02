@@ -507,6 +507,7 @@ export default function WorkoutBuilderSection({
   const [showAiWorkoutModal, setShowAiWorkoutModal] = useState(false);
   const [aiWorkoutText, setAiWorkoutText] = useState("");
   const [isGeneratingWorkout, setIsGeneratingWorkout] = useState(false);
+  const [showTips, setShowTips] = useState(false);
 
   // Workout state
   const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(null);
@@ -2981,6 +2982,66 @@ export default function WorkoutBuilderSection({
                           </div>
                         </div>
                       </div>
+
+                      {/* Voice Command Examples */}
+                      <div className="mt-4 pt-3 border-t border-gray-100">
+                        <h5 className="text-xs font-semibold text-gray-800 mb-2 flex items-center">
+                          <span className="mr-2">🎤</span>
+                          Voice Command Examples
+                        </h5>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <p className="text-xs text-gray-600">
+                              • "Add bench press 3x12, squats 4x15"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add deadlift 5x8 at 80%1RM"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add bench press 3x12 at RPE: 8"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add squats 4x15 with 3 RIR"
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs text-gray-600">
+                              • "Add deadlift 5x8 with 2 warmup sets"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add bench press 3x12 with 1 AMRAP set"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add plank 3 sets of 60 seconds"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add circuit: pushups, situps, burpees"
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tips Section */}
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <h5 className="text-xs font-semibold text-gray-800 mb-2 flex items-center">
+                          <span className="mr-2">💡</span>
+                          Tips for Best Results
+                        </h5>
+                        <ul className="text-xs text-gray-600 space-y-1">
+                          <li>• Be specific about exercises, sets, and reps</li>
+                          <li>• Include rest periods and effort levels</li>
+                          <li>• Mention equipment or difficulty level</li>
+                          <li>• Use standard fitness terminology</li>
+                          <li>
+                            • You can describe multiple exercises in one
+                            description
+                          </li>
+                          <li>
+                            • Special sets (warmup, AMRAP, dropset) are
+                            automatically detected
+                          </li>
+                        </ul>
+                      </div>
                     </div>
 
                     {/* Right column */}
@@ -4042,7 +4103,11 @@ export default function WorkoutBuilderSection({
       {/* AI Workout Generation Modal */}
       {showAiWorkoutModal && (
         <Dialog open={showAiWorkoutModal} onOpenChange={setShowAiWorkoutModal}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent
+            className={`transition-all duration-500 ease-in-out ${
+              showTips ? "sm:max-w-6xl" : "sm:max-w-3xl"
+            }`}
+          >
             <DialogHeader>
               <DialogTitle className="flex items-center space-x-2">
                 <span>Generate Workout with AI</span>
@@ -4057,66 +4122,316 @@ export default function WorkoutBuilderSection({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Workout Description
-                </label>
-                <Textarea
-                  value={aiWorkoutText}
-                  onChange={(e) => setAiWorkoutText(e.target.value)}
-                  placeholder="Describe your workout here... (e.g., 'Add pull-ups the first set is 20 reps the second set is 15 reps the third set is 10 reps')"
-                  rows={6}
-                  className="w-full"
-                />
-              </div>
+            <div className="w-full">
+              {!showTips ? (
+                // Normal layout when tips are collapsed
+                <div className="space-y-4 transition-all duration-500 ease-in-out">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Workout Description
+                    </label>
+                    <Textarea
+                      value={aiWorkoutText}
+                      onChange={(e) => setAiWorkoutText(e.target.value)}
+                      placeholder="Describe your workout here... (e.g., 'Add pull-ups the first set is 20 reps the second set is 15 reps the third set is 10 reps')"
+                      rows={6}
+                      className="w-full"
+                    />
+                  </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-blue-800 mb-2">
-                  💡 Tips for better results:
-                </h4>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• Be specific about exercises, sets, and reps</li>
-                  <li>• Include rest periods if needed</li>
-                  <li>• Mention equipment or difficulty level</li>
-                  <li>
-                    • You can describe multiple exercises in one description
-                  </li>
-                </ul>
-              </div>
+                  {/* Tips Button */}
+                  <div className="border border-gray-200 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setShowTips(!showTips)}
+                      className="w-full px-3 py-2 text-left text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 flex items-center justify-between transition-colors"
+                    >
+                      <span className="flex items-center space-x-2">
+                        <span>💡</span>
+                        <span>Tips for better results</span>
+                      </span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-300 ${
+                          showTips ? "rotate-90" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Expanded layout with input on left and tips on right
+                <div className="flex gap-6 transition-all duration-500 ease-in-out">
+                  {/* Left side - Input and Buttons */}
+                  <div className="w-2/5">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Workout Description
+                      </label>
+                      <Textarea
+                        value={aiWorkoutText}
+                        onChange={(e) => setAiWorkoutText(e.target.value)}
+                        placeholder="Describe your workout here... (e.g., 'Add pull-ups the first set is 20 reps the second set is 15 reps the third set is 10 reps')"
+                        rows={6}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Buttons moved below input */}
+                    <div className="flex gap-3 mt-6">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowAiWorkoutModal(false);
+                          setAiWorkoutText("");
+                        }}
+                        disabled={isGeneratingWorkout}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleGenerateWorkout}
+                        disabled={!aiWorkoutText.trim() || isGeneratingWorkout}
+                        className="flex-1 bg-purple-600 hover:bg-purple-700"
+                      >
+                        {isGeneratingWorkout ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Generating...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <span>Generate Workout</span>
+                            <span className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded-full text-gray-700">
+                              ✨ AI
+                            </span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Right side - Tips */}
+                  <div className="w-3/5">
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 h-full transition-all duration-500 ease-in-out">
+                      <button
+                        type="button"
+                        onClick={() => setShowTips(!showTips)}
+                        className="w-full px-3 py-2 text-left text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 flex items-center justify-between transition-colors mb-4"
+                      >
+                        <span className="flex items-center space-x-2">
+                          <span>💡</span>
+                          <span>Tips for better results</span>
+                        </span>
+                        <svg
+                          className={`w-4 h-4 transition-transform duration-300 ${
+                            showTips ? "rotate-90" : ""
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </button>
+
+                      <div className="space-y-4 overflow-y-auto max-h-[500px]">
+                        <div className="space-y-3">
+                          <div className="border-l-4 border-blue-500 pl-3">
+                            <h5 className="text-xs font-semibold text-gray-800 mb-1">
+                              Exercise
+                            </h5>
+                            <p className="text-xs text-gray-600 mb-1">
+                              Name of the exercise or movement
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              "Bench Press", "Squats", "Deadlift"
+                            </p>
+                          </div>
+
+                          <div className="border-l-4 border-green-500 pl-3">
+                            <h5 className="text-xs font-semibold text-gray-800 mb-1">
+                              Block Type
+                            </h5>
+                            <p className="text-xs text-gray-600 mb-1">
+                              How exercises are grouped together
+                            </p>
+                            <ul className="text-xs text-gray-500 space-y-1">
+                              <li>• "Standard: Single exercise"</li>
+                              <li>• "Superset: Two exercises back-to-back"</li>
+                              <li>
+                                • "Circuit: Multiple exercises in sequence"
+                              </li>
+                            </ul>
+                          </div>
+
+                          <div className="border-l-4 border-orange-500 pl-3">
+                            <h5 className="text-xs font-semibold text-gray-800 mb-1">
+                              Sets & Units
+                            </h5>
+                            <p className="text-xs text-gray-600 mb-1">
+                              Number of times and measurement type
+                            </p>
+                            <ul className="text-xs text-gray-500 space-y-1">
+                              <li>• "3 sets of 12 reps"</li>
+                              <li>• "60 seconds", "2 minutes"</li>
+                              <li>• "100 meters", "50 yards"</li>
+                            </ul>
+                          </div>
+
+                          <div className="border-l-4 border-purple-500 pl-3">
+                            <h5 className="text-xs font-semibold text-gray-800 mb-1">
+                              Rest & Effort
+                            </h5>
+                            <p className="text-xs text-gray-600 mb-1">
+                              Rest periods and intensity levels
+                            </p>
+                            <ul className="text-xs text-gray-500 space-y-1">
+                              <li>• "90s rest", "2min rest"</li>
+                              <li>• "80%1RM", "RPE: 8", "3 RIR"</li>
+                            </ul>
+                          </div>
+
+                          <div className="border-l-4 border-red-500 pl-3">
+                            <h5 className="text-xs font-semibold text-gray-800 mb-1">
+                              Special Sets
+                            </h5>
+                            <p className="text-xs text-gray-600 mb-1">
+                              Advanced workout modifications
+                            </p>
+                            <ul className="text-xs text-gray-500 space-y-1">
+                              <li>• "warmup sets", "AMRAP"</li>
+                              <li>• "dropset", "failure set"</li>
+                              <li>• "clusterset", "double dropset"</li>
+                            </ul>
+                          </div>
+
+                          <div className="border-l-4 border-gray-500 pl-3">
+                            <h5 className="text-xs font-semibold text-gray-800 mb-1">
+                              Equipment & Notes
+                            </h5>
+                            <p className="text-xs text-gray-600 mb-1">
+                              Additional information and tools
+                            </p>
+                            <ul className="text-xs text-gray-500 space-y-1">
+                              <li>• "with dumbbells", "resistance bands"</li>
+                              <li>• "Focus on form", "Use proper technique"</li>
+                            </ul>
+                          </div>
+                        </div>
+
+                        {/* Voice Command Examples */}
+                        <div className="pt-3 border-t border-gray-100">
+                          <h5 className="text-xs font-semibold text-gray-800 mb-2 flex items-center">
+                            <span className="mr-2">🎤</span>
+                            Voice Command Examples
+                          </h5>
+                          <div className="space-y-2">
+                            <p className="text-xs text-gray-600">
+                              • "Add bench press 3x12, squats 4x15"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add deadlift 5x8 at 80%1RM"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add bench press 3x12 at RPE: 8"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add squats 4x15 with 3 RIR"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add deadlift 5x8 with 2 warmup sets"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add bench press 3x12 with 1 AMRAP set"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add plank 3 sets of 60 seconds"
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              • "Add circuit: pushups, situps, burpees"
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Tips Section */}
+                        <div className="pt-3 border-t border-gray-100">
+                          <h5 className="text-xs font-semibold text-gray-800 mb-2 flex items-center">
+                            <span className="mr-2">💡</span>
+                            Tips for Best Results
+                          </h5>
+                          <ul className="text-xs text-gray-600 space-y-1">
+                            <li>
+                              • Be specific about exercises, sets, and reps
+                            </li>
+                            <li>• Include rest periods and effort levels</li>
+                            <li>• Mention equipment or difficulty level</li>
+                            <li>• Use standard fitness terminology</li>
+                            <li>
+                              • You can describe multiple exercises in one
+                              description
+                            </li>
+                            <li>
+                              • Special sets (warmup, AMRAP, dropset) are
+                              automatically detected
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowAiWorkoutModal(false);
-                  setAiWorkoutText("");
-                }}
-                disabled={isGeneratingWorkout}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleGenerateWorkout}
-                disabled={!aiWorkoutText.trim() || isGeneratingWorkout}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                {isGeneratingWorkout ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Generating...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <span>Generate Workout</span>
-                    <span className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded-full text-gray-700">
-                      ✨ AI
-                    </span>
-                  </div>
-                )}
-              </Button>
-            </DialogFooter>
+            {!showTips && (
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowAiWorkoutModal(false);
+                    setAiWorkoutText("");
+                  }}
+                  disabled={isGeneratingWorkout}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleGenerateWorkout}
+                  disabled={!aiWorkoutText.trim() || isGeneratingWorkout}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {isGeneratingWorkout ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Generating...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <span>Generate Workout</span>
+                      <span className="text-xs bg-white bg-opacity-20 px-2 py-1 rounded-full text-gray-700">
+                        ✨ AI
+                      </span>
+                    </div>
+                  )}
+                </Button>
+              </DialogFooter>
+            )}
           </DialogContent>
         </Dialog>
       )}
