@@ -1428,7 +1428,7 @@ export default function WorkoutBuilderSection({
       console.error("Error creating workout:", error);
       return null;
     } finally {
-      setSaving(false);
+      // setSaving(false);
     }
   };
 
@@ -2660,32 +2660,6 @@ export default function WorkoutBuilderSection({
               {/* Action buttons */}
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() =>
-                    setIsWorkoutDetailsExpanded(!isWorkoutDetailsExpanded)
-                  }
-                  className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  <span>
-                    {isWorkoutDetailsExpanded ? "Hide Details" : "Show Details"}
-                  </span>
-                  <svg
-                    className={`w-4 h-4 transition-transform ${
-                      isWorkoutDetailsExpanded ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-
-                <button
                   onClick={saveWorkout}
                   disabled={saving}
                   className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
@@ -2711,37 +2685,74 @@ export default function WorkoutBuilderSection({
               </div>
             </div>
 
-            {/* Second row: AI-powered buttons */}
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => setShowPdfUpload(true)}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors border border-blue-200"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {/* Second row: AI Features and Workout Details */}
+            <div className="flex items-center justify-between">
+              {/* AI Features - Left side */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowPdfUpload(true)}
+                  className="flex items-center space-x-1 px-3 py-1.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors border border-blue-200"
+                  title="Import workout from PDF using AI"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-                <span>Import from PDF</span>
-                <span className="text-xs bg-gradient-to-r from-purple-500 to-blue-500 text-white px-2 py-1 rounded-full">
-                  ✨ AI
-                </span>
-              </button>
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                  <span>PDF</span>
+                  <span className="text-xs bg-gradient-to-r from-purple-500 to-blue-500 text-white px-1.5 py-0.5 rounded-full">
+                    AI
+                  </span>
+                </button>
 
+                <button
+                  onClick={() => setShowAiWorkoutModal(true)}
+                  className="flex items-center space-x-1 px-3 py-1.5 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200"
+                  title="Generate workout with AI"
+                >
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                  <span>Generate</span>
+                  <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1.5 py-0.5 rounded-full">
+                    AI
+                  </span>
+                </button>
+              </div>
+
+              {/* Workout Details - Right side */}
               <button
-                onClick={() => setShowAiWorkoutModal(true)}
-                className="flex items-center space-x-2 px-4 py-2 text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200"
+                onClick={() =>
+                  setIsWorkoutDetailsExpanded(!isWorkoutDetailsExpanded)
+                }
+                className={`flex items-center space-x-2 px-4 py-2 text-sm rounded-lg transition-all ${
+                  isWorkoutDetailsExpanded
+                    ? "text-gray-900 bg-gray-100 border border-gray-300"
+                    : "text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-200 hover:border-blue-300"
+                }`}
               >
                 <svg
-                  className="w-4 h-4"
+                  className={`w-4 h-4 transition-transform ${
+                    isWorkoutDetailsExpanded ? "rotate-180" : ""
+                  }`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -2750,13 +2761,19 @@ export default function WorkoutBuilderSection({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    d="M19 9l-7 7-7-7"
                   />
                 </svg>
-                <span>Generate with AI</span>
-                <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-full">
-                  🎤 Voice
+                <span>
+                  {isWorkoutDetailsExpanded
+                    ? "Hide Details"
+                    : "Workout Details"}
                 </span>
+                {!isWorkoutDetailsExpanded && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                    ⚙️
+                  </span>
+                )}
               </button>
             </div>
           </div>
