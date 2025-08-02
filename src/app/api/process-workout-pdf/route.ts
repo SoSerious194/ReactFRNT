@@ -69,7 +69,7 @@ Please extract and structure the following information:
    - creator: The creator's name (if available)
    - date: The date (if available)
    - description: Any description or instructions
-   - difficulty: Estimated difficulty level
+   - difficulty: Estimate difficulty level based on exercises and reps
    - equipment: List of equipment needed
    - duration: Total workout duration
 
@@ -139,7 +139,7 @@ Return the data in this exact JSON structure:
     "creator": "string (optional)",
     "date": "string (optional)",
     "description": "string (optional)",
-    "difficulty": "string (optional)",
+    "difficulty": "Beginner" | "Intermediate" | "Advanced",
     "equipment": ["string array"],
     "duration": "string (optional)"
   },

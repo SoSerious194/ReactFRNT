@@ -33,10 +33,12 @@ export async function POST(request: NextRequest) {
        - duration: Estimate total workout duration
 
     2. Workout Blocks/Sections:
-       IMPORTANT: Create separate blocks for different workout types:
-       - "normal" blocks: Regular exercises with sets
-       - "warmup" blocks: Warm-up exercises (when explicitly mentioned)
-       - "circuit" blocks: Circuit exercises (when "circuit" is mentioned)
+       * CRITICAL: Carefully analyze the exercise pattern to determine the correct type:
+         - "normal": Each exercise appears only once, done sequentially without repetition
+         - "circuit": Same exercises repeat in rounds/cycles, or AMRAP style repetition
+         - "superset": Two exercises paired together, done back-to-back
+         - "warmup": Warm-up exercises at the beginning
+         - "cooldown": Cool-down exercises at the end
        
        Each block should contain exercises of the same type.
 
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
       "blocks": [
         {
           "name": "string (e.g., 'Goblet Squats', 'Deadlifts', 'Circuit')",
-          "type": "normal" | "warmup" | "circuit",
+          "type": "normal" | "circuit" | "superset" | "warmup" | "cooldown",
           "duration": "string",
           "exercises": [
             {

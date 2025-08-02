@@ -339,7 +339,7 @@ const SortableExercise = ({
     >
       <BarsIcon />
       <span className="text-sm text-gray-700 flex-1">
-        {exercise.exercise.name}
+        {exercise.exercise.name || "No name"}
       </span>
     </div>
   );
@@ -508,6 +508,8 @@ export default function WorkoutBuilderSection({
   const [aiWorkoutText, setAiWorkoutText] = useState("");
   const [isGeneratingWorkout, setIsGeneratingWorkout] = useState(false);
   const [showTips, setShowTips] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
 
   // Workout state
   const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(null);
@@ -607,6 +609,88 @@ export default function WorkoutBuilderSection({
       loadWorkoutForDuplication(duplicateWorkoutId);
     }
   }, [duplicateWorkoutId, exercises]);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
+      const SpeechRecognition =
+        (window as any).webkitSpeechRecognition ||
+        (window as any).SpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en";
+
+      recognition.onresult = (event: any) => {
+        let finalTranscript = "";
+        let interimTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        // Update text in real-time with both final and interim results
+        setAiWorkoutText((prev) => {
+          // Remove any previous interim results (they start with a special marker)
+          const withoutInterim = prev.replace(/\s*\[interim\].*$/, "");
+          const newText = withoutInterim + finalTranscript;
+
+          // Add interim results with a visual indicator
+          if (interimTranscript) {
+            return newText + " [interim] " + interimTranscript;
+          }
+
+          return newText;
+        });
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        setIsListening(false);
+
+        // Handle specific error types
+        if (event.error === "language-not-supported") {
+          addToast({
+            type: "error",
+            message:
+              "Speech recognition not supported in your browser. Please type your workout description.",
+            duration: 4000,
+          });
+        } else if (event.error === "not-allowed") {
+          addToast({
+            type: "error",
+            message:
+              "Microphone access denied. Please allow microphone access and try again.",
+            duration: 4000,
+          });
+        } else if (event.error === "no-speech") {
+          addToast({
+            type: "error",
+            message: "No speech detected. Please try speaking again.",
+            duration: 4000,
+          });
+        } else {
+          addToast({
+            type: "error",
+            message:
+              "Speech recognition error. Please type your workout description.",
+            duration: 4000,
+          });
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      setRecognition(recognition);
+    }
+  }, []);
 
   // Filter exercises based on search query
   useEffect(() => {
@@ -1512,7 +1596,7 @@ export default function WorkoutBuilderSection({
             const setData: ExerciseSetInsert = {
               workout_block_id: block.id,
               exercise_id: exercise.exercise.id,
-              exercise_name: exercise.exercise.name,
+              exercise_name: exercise.exercise.name || "No name",
               set_number: setIndex + 1,
               set_type: mapSetTypeToDatabase(set.type),
               reps: set.reps || null,
@@ -2276,9 +2360,33 @@ export default function WorkoutBuilderSection({
 
               if (mappedExerciseId) {
                 // Use existing exercise from library
-                matchedExercise = exercises.find(
+                const foundExercise = exercises.find(
                   (e) => e.id === mappedExerciseId
-                )!;
+                );
+                if (foundExercise) {
+                  matchedExercise = foundExercise;
+                } else {
+                  console.warn(
+                    `Exercise with ID ${mappedExerciseId} not found in library`
+                  );
+                  // Create a fallback exercise
+                  matchedExercise = {
+                    id: mappedExerciseId,
+                    name: exercise.name || "Unknown Exercise",
+                    video_url_1: null,
+                    video_url_2: null,
+                    image: null,
+                    difficulty: null,
+                    equipment: null,
+                    exercise_type: null,
+                    muscles_trained: null,
+                    instructions: null,
+                    cues_and_tips: null,
+                    is_active: true,
+                    is_global: true,
+                    coach_id: null,
+                  };
+                }
               } else if (newExercise) {
                 // Use newly created exercise - find it in the updated exercises list
                 const createdExercise = exercises.find(
@@ -2290,15 +2398,15 @@ export default function WorkoutBuilderSection({
                   // Fallback to placeholder exercise
                   matchedExercise = {
                     id: `temp-${Date.now()}`,
-                    name: newExercise.name,
+                    name: newExercise.name || "New Exercise",
                     video_url_1: null,
                     video_url_2: null,
                     image: null,
-                    difficulty: newExercise.difficulty,
-                    equipment: newExercise.equipment,
-                    exercise_type: newExercise.exercise_type,
+                    difficulty: newExercise.difficulty || null,
+                    equipment: newExercise.equipment || null,
+                    exercise_type: newExercise.exercise_type || null,
                     muscles_trained: null,
-                    instructions: newExercise.instructions,
+                    instructions: newExercise.instructions || null,
                     cues_and_tips: null,
                     is_active: true,
                     is_global: true,
@@ -2307,9 +2415,26 @@ export default function WorkoutBuilderSection({
                 }
               } else {
                 // This should never happen due to the filter above, but just in case
-                throw new Error(
+                console.error(
                   `No mapping found for exercise: ${exercise.name}`
                 );
+                // Create a fallback exercise
+                matchedExercise = {
+                  id: `fallback-${Date.now()}`,
+                  name: exercise.name || "Unknown Exercise",
+                  video_url_1: null,
+                  video_url_2: null,
+                  image: null,
+                  difficulty: null,
+                  equipment: null,
+                  exercise_type: null,
+                  muscles_trained: null,
+                  instructions: exercise.instructions || null,
+                  cues_and_tips: null,
+                  is_active: true,
+                  is_global: true,
+                  coach_id: null,
+                };
               }
 
               // Create exercise sets based on duration/rest
@@ -2517,6 +2642,32 @@ export default function WorkoutBuilderSection({
       });
     } finally {
       setIsGeneratingWorkout(false);
+    }
+  };
+
+  // Speech recognition functions
+  const startListening = () => {
+    if (recognition) {
+      recognition.start();
+      setIsListening(true);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognition) {
+      recognition.stop();
+      setIsListening(false);
+
+      // Clean up any interim results when stopping
+      setAiWorkoutText((prev) => prev.replace(/\s*\[interim\].*$/, ""));
+    }
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
     }
   };
 
@@ -3521,7 +3672,7 @@ export default function WorkoutBuilderSection({
                                     )
                                   : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' fill='%236b7280' text-anchor='middle' dy='.3em'%3EExercise%3C/text%3E%3C/svg%3E"
                               }
-                              alt={exercise.exercise.name}
+                              alt={exercise.exercise.name || "No name"}
                               onError={(e) => {
                                 e.currentTarget.src =
                                   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='50' font-family='Arial' font-size='12' fill='%236b7280' text-anchor='middle' dy='.3em'%3EExercise%3C/text%3E%3C/svg%3E";
@@ -3531,7 +3682,7 @@ export default function WorkoutBuilderSection({
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-4">
                               <h3 className="text-lg font-semibold text-gray-900">
-                                {exercise.exercise.name}
+                                {exercise.exercise.name || "No name"}
                               </h3>
                               <div className="relative dropdown-container">
                                 <button
@@ -4127,16 +4278,60 @@ export default function WorkoutBuilderSection({
                 // Normal layout when tips are collapsed
                 <div className="space-y-4 transition-all duration-500 ease-in-out">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Workout Description
-                    </label>
-                    <Textarea
-                      value={aiWorkoutText}
-                      onChange={(e) => setAiWorkoutText(e.target.value)}
-                      placeholder="Describe your workout here... (e.g., 'Add pull-ups the first set is 20 reps the second set is 15 reps the third set is 10 reps')"
-                      rows={6}
-                      className="w-full"
-                    />
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Workout Description
+                      </label>
+                      <button
+                        type="button"
+                        onClick={toggleListening}
+                        disabled={!recognition}
+                        className={`flex items-center space-x-2 px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                          isListening
+                            ? "bg-red-100 text-red-700 border border-red-300"
+                            : "bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
+                        }`}
+                      >
+                        <svg
+                          className={`w-4 h-4 ${
+                            isListening ? "animate-pulse" : ""
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                          />
+                        </svg>
+                        <span>{isListening ? "Stop" : "Voice"}</span>
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Textarea
+                        value={aiWorkoutText.replace(/\s*\[interim\].*$/, "")}
+                        onChange={(e) => setAiWorkoutText(e.target.value)}
+                        placeholder="Describe your workout here... (e.g., 'Add pull-ups the first set is 20 reps the second set is 15 reps the third set is 10 reps')"
+                        rows={6}
+                        className="w-full"
+                      />
+                      {isListening && aiWorkoutText.includes("[interim]") && (
+                        <div className="absolute inset-0 pointer-events-none">
+                          <div className="p-3 text-sm text-gray-500 italic">
+                            {aiWorkoutText.split("[interim]")[1] || ""}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {isListening && (
+                      <div className="mt-2 text-xs text-blue-600 flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                        <span>Listening... Speak your workout description</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Tips Button */}
@@ -4174,16 +4369,62 @@ export default function WorkoutBuilderSection({
                   {/* Left side - Input and Buttons */}
                   <div className="w-2/5">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Workout Description
-                      </label>
-                      <Textarea
-                        value={aiWorkoutText}
-                        onChange={(e) => setAiWorkoutText(e.target.value)}
-                        placeholder="Describe your workout here... (e.g., 'Add pull-ups the first set is 20 reps the second set is 15 reps the third set is 10 reps')"
-                        rows={6}
-                        className="w-full"
-                      />
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Workout Description
+                        </label>
+                        <button
+                          type="button"
+                          onClick={toggleListening}
+                          disabled={!recognition}
+                          className={`flex items-center space-x-2 px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                            isListening
+                              ? "bg-red-100 text-red-700 border border-red-300"
+                              : "bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200"
+                          }`}
+                        >
+                          <svg
+                            className={`w-4 h-4 ${
+                              isListening ? "animate-pulse" : ""
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                            />
+                          </svg>
+                          <span>{isListening ? "Stop" : "Voice"}</span>
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <Textarea
+                          value={aiWorkoutText.replace(/\s*\[interim\].*$/, "")}
+                          onChange={(e) => setAiWorkoutText(e.target.value)}
+                          placeholder="Describe your workout here... (e.g., 'Add pull-ups the first set is 20 reps the second set is 15 reps the third set is 10 reps')"
+                          rows={6}
+                          className="w-full"
+                        />
+                        {isListening && aiWorkoutText.includes("[interim]") && (
+                          <div className="absolute inset-0 pointer-events-none">
+                            <div className="p-3 text-sm text-gray-500 italic">
+                              {aiWorkoutText.split("[interim]")[1] || ""}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {isListening && (
+                        <div className="mt-2 text-xs text-blue-600 flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                          <span>
+                            Listening... Speak your workout description
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Buttons moved below input */}
