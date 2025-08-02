@@ -3133,66 +3133,6 @@ export default function WorkoutBuilderSection({
                           </div>
                         </div>
                       </div>
-
-                      {/* Voice Command Examples */}
-                      <div className="mt-4 pt-3 border-t border-gray-100">
-                        <h5 className="text-xs font-semibold text-gray-800 mb-2 flex items-center">
-                          <span className="mr-2">🎤</span>
-                          Voice Command Examples
-                        </h5>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <p className="text-xs text-gray-600">
-                              • "Add bench press 3x12, squats 4x15"
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              • "Add deadlift 5x8 at 80%1RM"
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              • "Add bench press 3x12 at RPE: 8"
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              • "Add squats 4x15 with 3 RIR"
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-xs text-gray-600">
-                              • "Add deadlift 5x8 with 2 warmup sets"
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              • "Add bench press 3x12 with 1 AMRAP set"
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              • "Add plank 3 sets of 60 seconds"
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              • "Add circuit: pushups, situps, burpees"
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Tips Section */}
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <h5 className="text-xs font-semibold text-gray-800 mb-2 flex items-center">
-                          <span className="mr-2">💡</span>
-                          Tips for Best Results
-                        </h5>
-                        <ul className="text-xs text-gray-600 space-y-1">
-                          <li>• Be specific about exercises, sets, and reps</li>
-                          <li>• Include rest periods and effort levels</li>
-                          <li>• Mention equipment or difficulty level</li>
-                          <li>• Use standard fitness terminology</li>
-                          <li>
-                            • You can describe multiple exercises in one
-                            description
-                          </li>
-                          <li>
-                            • Special sets (warmup, AMRAP, dropset) are
-                            automatically detected
-                          </li>
-                        </ul>
-                      </div>
                     </div>
 
                     {/* Right column */}
