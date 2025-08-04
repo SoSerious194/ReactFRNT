@@ -531,6 +531,154 @@ export type Database = {
         }
         Relationships: []
       }
+      form_elements: {
+        Row: {
+          created_at: string | null
+          css_class: string | null
+          default_value: string | null
+          description: string | null
+          element_type: string
+          form_id: string | null
+          help_text: string | null
+          id: string
+          label: string
+          max_length: number | null
+          max_value: number | null
+          min_length: number | null
+          min_value: number | null
+          options: Json | null
+          order_index: number
+          placeholder: string | null
+          required: boolean | null
+          validation_rules: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          css_class?: string | null
+          default_value?: string | null
+          description?: string | null
+          element_type: string
+          form_id?: string | null
+          help_text?: string | null
+          id?: string
+          label: string
+          max_length?: number | null
+          max_value?: number | null
+          min_length?: number | null
+          min_value?: number | null
+          options?: Json | null
+          order_index: number
+          placeholder?: string | null
+          required?: boolean | null
+          validation_rules?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          css_class?: string | null
+          default_value?: string | null
+          description?: string | null
+          element_type?: string
+          form_id?: string | null
+          help_text?: string | null
+          id?: string
+          label?: string
+          max_length?: number | null
+          max_value?: number | null
+          min_length?: number | null
+          min_value?: number | null
+          options?: Json | null
+          order_index?: number
+          placeholder?: string | null
+          required?: boolean | null
+          validation_rules?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_elements_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_responses: {
+        Row: {
+          client_id: string | null
+          form_id: string | null
+          id: string
+          responses: Json
+          submitted_at: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          form_id?: string | null
+          id?: string
+          responses: Json
+          submitted_at?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          form_id?: string | null
+          id?: string
+          responses?: Json
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_responses_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forms: {
+        Row: {
+          coach_id: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          coach_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          coach_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forms_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       habits: {
         Row: {
           bg_color: string
