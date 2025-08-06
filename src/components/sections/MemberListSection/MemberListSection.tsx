@@ -1,43 +1,38 @@
-'use client';
+"use client";
 import { PlusIcon, SearchIcon } from "lucide-react";
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useChat } from "@/lib/chatContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function MemberListSection() {
-  // Client data for mapping
-  const clients = [
-    {
-      id: 1,
-      name: "Jane Doe",
-      avatar: "https://randomuser.me/api/portraits/women/44.jpg",
-      isActive: true,
-    },
-    {
-      id: 2,
-      name: "John Smith",
-      avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-      isActive: false,
-    },
-    {
-      id: 3,
-      name: "Emily Johnson",
-      avatar: "https://randomuser.me/api/portraits/women/68.jpg",
-      isActive: false,
-    },
-    {
-      id: 4,
-      name: "Michael Brown",
-      avatar: "https://randomuser.me/api/portraits/men/65.jpg",
-      isActive: false,
-    },
-    {
-      id: 5,
-      name: "Olivia Lee",
-      avatar: "https://randomuser.me/api/portraits/women/12.jpg",
-      isActive: false,
-    },
-  ];
+  const { users, selectedUser, selectUser, isLoading } = useChat();
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Filter users based on search term
+  const filteredUsers = users.filter(
+    (user) =>
+      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } else if (diffInHours < 48) {
+      return "Yesterday";
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
 
   return (
     <aside className="w-80 h-full border-r border-solid">
@@ -54,12 +49,14 @@ export default function MemberListSection() {
             </Button>
           </div>
 
-          {/* SearchIcon Input */}
+          {/* Search Input */}
           <div className="relative">
             <SearchIcon className="absolute left-3 top-[11px] h-4 w-4 text-gray-400" />
             <Input
               className="pl-10 h-[38px] text-sm border-gray-300"
               placeholder="Search Clients"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </div>
@@ -67,25 +64,52 @@ export default function MemberListSection() {
 
       {/* Clients List */}
       <div className="w-full">
-        {clients.map((client) => (
-          <div
-            key={client.id}
-            className={`w-full h-[72px] ${client.isActive ? "bg-green-50 border-r-4 border-r-green-500" : ""}`}
-          >
-            <div className="flex p-4 items-center">
-              {/* Client Avatar */}
-              <img
-                className="w-12 h-12 rounded-full object-cover mr-4"
-                alt={client.name}
-                src={client.avatar}
-              />
-              {/* Client Name */}
-              <span className="font-normal text-base text-gray-900 leading-6">
-                {client.name}
-              </span>
-            </div>
+        {isLoading ? (
+          <div className="p-4 text-center text-gray-500">
+            Loading clients...
           </div>
-        ))}
+        ) : filteredUsers.length === 0 ? (
+          <div className="p-4 text-center text-gray-500">
+            {searchTerm ? "No clients found" : "No clients assigned"}
+          </div>
+        ) : (
+          filteredUsers.map((user) => (
+            <div
+              key={user.id}
+              className={`w-full h-[72px] cursor-pointer hover:bg-gray-50 ${
+                selectedUser?.id === user.id
+                  ? "bg-green-50 border-r-4 border-r-green-500"
+                  : ""
+              }`}
+              onClick={() => selectUser(user)}
+            >
+              <div className="flex p-4 items-center">
+                {/* Client Avatar */}
+                <Avatar className="w-12 h-12 mr-4">
+                  <AvatarImage
+                    src={user.profile_image_url || undefined}
+                    alt={user.full_name || "User"}
+                  />
+                  <AvatarFallback>
+                    {user.full_name?.charAt(0) || user.email?.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+
+                {/* Client Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="font-normal text-base text-gray-900 leading-6 truncate">
+                    {user.full_name || user.email || "Unknown User"}
+                  </div>
+                  {user.email && (
+                    <div className="text-xs text-gray-500">
+                      Email: {user.email}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </aside>
   );

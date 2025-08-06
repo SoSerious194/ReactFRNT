@@ -90,6 +90,7 @@ export const ProgramScheduleSection = ({ mode, program }: ProgramScheduleSection
   const [openMenu, setOpenMenu] = useState<{ day: number, index: number } | null>(null);
   const [activeDrag, setActiveDrag] = useState<null | { day: number; index: number; workout: Workout }>(null);
   const [overDay, setOverDay] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchWorkouts = async () => {
@@ -141,9 +142,82 @@ export const ProgramScheduleSection = ({ mode, program }: ProgramScheduleSection
 
   // Save handlers
   const handleSave = async (asDraft = false) => {
-    // TODO: Replace with real save logic (e.g., Supabase insert/update)
-    await new Promise(res => setTimeout(res, 500));
-    window.alert(asDraft ? 'Program saved as draft!' : 'Program saved!');
+    if (!program?.id) {
+      console.error('No program ID available for saving');
+      return;
+    }
+
+    setSaving(true);
+    const supabase = createClient();
+
+    try {
+      // Update the program's lastModified timestamp
+      await supabase
+        .from('programs')
+        .update({ 
+          lastModified: new Date().toISOString()
+        })
+        .eq('id', program.id);
+
+      // Delete existing program_days for this program
+      await supabase
+        .from('program_days')
+        .delete()
+        .eq('program_id', program.id);
+
+      // Insert new program_days based on current dayWorkouts
+      const programDaysToInsert = [];
+      
+      for (let day = 1; day <= scheduleLength; day++) {
+        const dayWorkoutsList = dayWorkouts[day] || [];
+        
+        if (dayWorkoutsList.length === 0) {
+          // Insert rest day
+          programDaysToInsert.push({
+            program_id: program.id,
+            day: day,
+            is_rest_day: true,
+            position: 0
+          });
+        } else {
+          // Insert workouts for this day
+          dayWorkoutsList.forEach((workout, index) => {
+            programDaysToInsert.push({
+              program_id: program.id,
+              day: day,
+              workout_id: workout.id,
+              is_rest_day: false,
+              position: index
+            });
+          });
+        }
+      }
+
+      if (programDaysToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('program_days')
+          .insert(programDaysToInsert);
+
+        if (insertError) {
+          console.error('Error inserting program days:', insertError);
+          alert('Error saving program: ' + insertError.message);
+          return;
+        }
+      }
+
+      alert(asDraft ? 'Program saved as draft!' : 'Program saved successfully!');
+      
+      // Optionally redirect back to program library
+      if (!asDraft) {
+        router.push('/training-hub/program-library');
+      }
+
+    } catch (error) {
+      console.error('Error saving program:', error);
+      alert('Error saving program. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Auto-schedule handler (simple round-robin from available workouts)
@@ -168,8 +242,21 @@ export const ProgramScheduleSection = ({ mode, program }: ProgramScheduleSection
       <div className="flex justify-between items-center px-6 pt-6">
         <div></div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => handleSave(true)} className="border-gray-300">Save as Draft</Button>
-          <Button className="bg-green-500 hover:bg-green-600 text-white" onClick={() => handleSave(false)}>Save Program</Button>
+          <Button 
+            variant="outline" 
+            onClick={() => handleSave(true)} 
+            className="border-gray-300"
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save as Draft'}
+          </Button>
+          <Button 
+            className="bg-green-500 hover:bg-green-600 text-white" 
+            onClick={() => handleSave(false)}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save Program'}
+          </Button>
         </div>
       </div>
       <DndContext onDragEnd={handleDragEnd} onDragOver={handleDragOver}>

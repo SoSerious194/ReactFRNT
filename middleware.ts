@@ -1,8 +1,26 @@
-import { type NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/utils/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+  const response = await updateSession(request)
+  
+  // Get the pathname
+  const path = request.nextUrl.pathname
+  
+  // Protected routes that require authentication
+  const protectedRoutes = ['/inbox', '/private', '/training-hub', '/clients-groups']
+  const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route))
+  
+  // Auth routes
+  const authRoutes = ['/login']
+  const isAuthRoute = authRoutes.some(route => path.startsWith(route))
+  
+  // If accessing auth routes while authenticated, redirect to inbox
+  if (isAuthRoute && response.status !== 302) {
+    return NextResponse.redirect(new URL('/inbox', request.url))
+  }
+  
+  return response
 }
 
 export const config = {

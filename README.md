@@ -20,6 +20,41 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Authentication Setup
+
+This project uses Supabase for authentication. Make sure you have the following environment variables set:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+## Troubleshooting Authentication Issues
+
+### After Email Confirmation
+
+If you're having trouble logging in after confirming your email:
+
+1. **Check Email Confirmation**: Make sure you clicked the confirmation link in your email
+2. **Password Requirements**: Ensure your password is at least 6 characters long
+3. **Environment Variables**: Verify your Supabase environment variables are correct
+4. **Browser Console**: Check the browser console for any error messages
+5. **Debug Info**: The login page now shows debug information to help identify issues
+
+### Common Issues
+
+- **"Invalid login credentials"**: Double-check your email and password
+- **"Email not confirmed"**: Click the confirmation link in your email
+- **"Too many requests"**: Wait a moment before trying again
+- **Session issues**: Try clearing your browser cookies and cache
+
+### Debug Information
+
+The login page includes a debug section that shows:
+- Current session status
+- User email (if logged in)
+- Email confirmation status
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
