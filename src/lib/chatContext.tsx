@@ -46,11 +46,13 @@ export const useChat = () => {
 interface ChatProviderProps {
   children: ReactNode;
   coachId: string;
+  selectedClientId?: string;
 }
 
 export const ChatProvider: React.FC<ChatProviderProps> = ({
   children,
   coachId,
+  selectedClientId,
 }) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
@@ -175,6 +177,16 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({
       loadUsers();
     }
   }, [currentUserId]);
+
+  // Auto-select client if selectedClientId is provided
+  useEffect(() => {
+    if (selectedClientId && users.length > 0 && streamClient) {
+      const targetUser = users.find(user => user.id === selectedClientId);
+      if (targetUser) {
+        selectUser(targetUser);
+      }
+    }
+  }, [selectedClientId, users, streamClient]);
 
   // Cleanup on unmount
   useEffect(() => {

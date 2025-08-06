@@ -2415,7 +2415,7 @@ export default function WorkoutBuilderSection({
                 }
               } else {
                 // This should never happen due to the filter above, but just in case
-                console.error(
+        console.error(
                   `No mapping found for exercise: ${exercise.name}`
                 );
                 // Create a fallback exercise

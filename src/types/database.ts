@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_meal_plans: {
+        Row: {
+          assigned_at: string | null
+          client_id: string
+          coach_id: string
+          created_at: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean | null
+          meal_plan_id: string
+          start_date: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          client_id: string
+          coach_id: string
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          meal_plan_id: string
+          start_date: string
+        }
+        Update: {
+          assigned_at?: string | null
+          client_id?: string
+          coach_id?: string
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          meal_plan_id?: string
+          start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_meal_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_meal_plans_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_program_days: {
         Row: {
           client_id: string
@@ -531,6 +582,63 @@ export type Database = {
         }
         Relationships: []
       }
+      food_items: {
+        Row: {
+          brand_name: string | null
+          calories_per_serving: number | null
+          carbs_grams: number | null
+          created_at: string | null
+          fat_grams: number | null
+          fiber_grams: number | null
+          full_nutrients: Json | null
+          id: string
+          name: string
+          nutritionix_id: string
+          protein_grams: number | null
+          serving_unit: string | null
+          serving_weight_grams: number | null
+          sodium_mg: number | null
+          sugar_grams: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          brand_name?: string | null
+          calories_per_serving?: number | null
+          carbs_grams?: number | null
+          created_at?: string | null
+          fat_grams?: number | null
+          fiber_grams?: number | null
+          full_nutrients?: Json | null
+          id?: string
+          name: string
+          nutritionix_id: string
+          protein_grams?: number | null
+          serving_unit?: string | null
+          serving_weight_grams?: number | null
+          sodium_mg?: number | null
+          sugar_grams?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          brand_name?: string | null
+          calories_per_serving?: number | null
+          carbs_grams?: number | null
+          created_at?: string | null
+          fat_grams?: number | null
+          fiber_grams?: number | null
+          full_nutrients?: Json | null
+          id?: string
+          name?: string
+          nutritionix_id?: string
+          protein_grams?: number | null
+          serving_unit?: string | null
+          serving_weight_grams?: number | null
+          sodium_mg?: number | null
+          sugar_grams?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       form_elements: {
         Row: {
           created_at: string | null
@@ -888,6 +996,72 @@ export type Database = {
         }
         Relationships: []
       }
+      nutrition_logs: {
+        Row: {
+          client_id: string
+          coach_id: string
+          created_at: string | null
+          food_items: Json
+          id: string
+          log_date: string
+          logged_at: string | null
+          meal_type: string
+          notes: string | null
+          total_calories: number | null
+          total_carbs: number | null
+          total_fat: number | null
+          total_protein: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          coach_id: string
+          created_at?: string | null
+          food_items: Json
+          id?: string
+          log_date: string
+          logged_at?: string | null
+          meal_type: string
+          notes?: string | null
+          total_calories?: number | null
+          total_carbs?: number | null
+          total_fat?: number | null
+          total_protein?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          coach_id?: string
+          created_at?: string | null
+          food_items?: Json
+          id?: string
+          log_date?: string
+          logged_at?: string | null
+          meal_type?: string
+          notes?: string | null
+          total_calories?: number | null
+          total_carbs?: number | null
+          total_fat?: number | null
+          total_protein?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_logs_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       program_assignments: {
         Row: {
           assigned_at: string | null
@@ -1195,6 +1369,51 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: []
+      }
+      water_logs: {
+        Row: {
+          amount_ml: number
+          client_id: string
+          coach_id: string
+          created_at: string | null
+          id: string
+          log_date: string
+          logged_at: string | null
+        }
+        Insert: {
+          amount_ml: number
+          client_id: string
+          coach_id: string
+          created_at?: string | null
+          id?: string
+          log_date: string
+          logged_at?: string | null
+        }
+        Update: {
+          amount_ml?: number
+          client_id?: string
+          coach_id?: string
+          created_at?: string | null
+          id?: string
+          log_date?: string
+          logged_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "water_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "water_logs_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workout_blocks: {
         Row: {
