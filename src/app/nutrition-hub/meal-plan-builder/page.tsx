@@ -15,7 +15,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { UserService, User as DatabaseUser } from "@/lib/userServices";
 import { RecipeService } from "@/lib/recipeServices";
-import { Recipe as DatabaseRecipe } from "@/types/recipe";
 import { MealPlanService } from "@/lib/mealPlanServices";
 import {
   WeekMealData,
@@ -343,7 +342,11 @@ function MealPlanBuilderPageContent() {
 
   // Check if a day has any meals assigned
   const hasMealsAssigned = (dayNumber: number) => {
-    const dayData = weekData.find((day) => day.dayNumber === dayNumber);
+    const dayData = weekData.find(
+      (day) =>
+        day.dayNumber === dayNumber &&
+        day.date === `Week ${weekNav.currentWeek} Day ${dayNumber}`
+    );
     return dayData?.meals.some((meal) => meal.recipe) || false;
   };
 
@@ -377,32 +380,36 @@ function MealPlanBuilderPageContent() {
     // Initialize with Week 1, Day 1 (Monday)
     setSelectedDay(1);
 
-    // Initialize week data with empty meal slots (only if not in edit mode)
-    const initializeWeek = () => {
-      const days: DayMeals[] = [];
-      weekNav.daysInCurrentWeek.forEach((day) => {
-        days.push({
-          date: `week-${weekNav.currentWeek}-day-${day}`, // Simple identifier
-          dayNumber: day,
-          meals: [
-            {
-              id: `w${weekNav.currentWeek}-d${day}-breakfast`,
-              mealType: "breakfast",
-            },
-            { id: `w${weekNav.currentWeek}-d${day}-lunch`, mealType: "lunch" },
-            {
-              id: `w${weekNav.currentWeek}-d${day}-dinner`,
-              mealType: "dinner",
-            },
-          ],
-        });
-      });
-      setWeekData(days);
+    // Initialize all weeks with empty meal slots (only if not in edit mode)
+    const initializeAllWeeks = () => {
+      const allWeeksData: DayMeals[] = [];
+
+      // Initialize all 4 weeks
+      for (let week = 1; week <= 4; week++) {
+        for (let day = 1; day <= 7; day++) {
+          allWeeksData.push({
+            date: `Week ${week} Day ${day}`, // Consistent with loading format
+            dayNumber: day,
+            meals: [
+              {
+                id: `w${week}-d${day}-breakfast`,
+                mealType: "breakfast",
+              },
+              { id: `w${week}-d${day}-lunch`, mealType: "lunch" },
+              {
+                id: `w${week}-d${day}-dinner`,
+                mealType: "dinner",
+              },
+            ],
+          });
+        }
+      }
+      setWeekData(allWeeksData);
     };
 
     // Only initialize if not in edit mode or duplicate mode
     if (!isEditMode && !isDuplicateMode) {
-      initializeWeek();
+      initializeAllWeeks();
     }
   }, [weekNav.currentWeek, isEditMode, isDuplicateMode, weekData.length]);
 
@@ -464,7 +471,10 @@ function MealPlanBuilderPageContent() {
   ) => {
     setWeekData((prev) =>
       prev.map((day) => {
-        if (day.dayNumber === dayNumber) {
+        if (
+          day.dayNumber === dayNumber &&
+          day.date === `Week ${weekNav.currentWeek} Day ${dayNumber}`
+        ) {
           return {
             ...day,
             meals: day.meals.map((meal) => {
@@ -514,7 +524,11 @@ function MealPlanBuilderPageContent() {
     }
   };
 
-  const selectedDayData = weekData.find((day) => day.dayNumber === selectedDay);
+  const selectedDayData = weekData.find(
+    (day) =>
+      day.dayNumber === selectedDay &&
+      day.date === `Week ${weekNav.currentWeek} Day ${selectedDay}`
+  );
 
   // Convert UI data to service format
   const convertToWeekMealData = (): WeekMealData[] => {
@@ -526,7 +540,10 @@ function MealPlanBuilderPageContent() {
 
       // For each day in the week (1-7)
       for (let day = 1; day <= 7; day++) {
-        const dayData = weekData.find((d) => d.dayNumber === day);
+        const dayData = weekData.find(
+          (d) => d.dayNumber === day && d.date === `Week ${week} Day ${day}`
+        );
+
         const mealSlotData: MealSlotData[] =
           dayData?.meals.map((meal) => ({
             mealType: meal.mealType,
@@ -638,6 +655,8 @@ function MealPlanBuilderPageContent() {
         router.push("/nutrition-hub?success=meal-plan-updated");
       } else {
         // Create new meal plan (both new creation and duplication)
+        const weekMealData = convertToWeekMealData();
+
         const createRequest: CreateMealPlanRequest = {
           mealPlan: {
             coach_id: user.id,
@@ -646,7 +665,7 @@ function MealPlanBuilderPageContent() {
           },
           userSelectionMode,
           selectedUsers,
-          mealData: convertToWeekMealData(),
+          mealData: weekMealData,
         };
 
         await MealPlanService.createMealPlan(createRequest);
@@ -1124,7 +1143,11 @@ function MealPlanBuilderPageContent() {
                             // Remove recipe from meal
                             setWeekData((prev) =>
                               prev.map((day) => {
-                                if (day.dayNumber === selectedDay) {
+                                if (
+                                  day.dayNumber === selectedDay &&
+                                  day.date ===
+                                    `Week ${weekNav.currentWeek} Day ${selectedDay}`
+                                ) {
                                   return {
                                     ...day,
                                     meals: day.meals.map((m) => {
