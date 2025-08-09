@@ -458,6 +458,78 @@ export type Database = {
           },
         ]
       }
+      exercise_library_backup: {
+        Row: {
+          coach_id: string | null
+          created_at: string | null
+          cues_and_tips: string | null
+          default_unit: string | null
+          difficulty: string | null
+          equipment: string | null
+          exercise_type: string | null
+          id: string | null
+          image: string | null
+          instructions: string | null
+          is_active: boolean | null
+          is_draft: boolean | null
+          is_global: boolean | null
+          muscles_trained: string[] | null
+          name: string | null
+          progression_id: string | null
+          regression_id: string | null
+          target_goal: string | null
+          updated_at: string | null
+          video_url_1: string | null
+          video_url_2: string | null
+        }
+        Insert: {
+          coach_id?: string | null
+          created_at?: string | null
+          cues_and_tips?: string | null
+          default_unit?: string | null
+          difficulty?: string | null
+          equipment?: string | null
+          exercise_type?: string | null
+          id?: string | null
+          image?: string | null
+          instructions?: string | null
+          is_active?: boolean | null
+          is_draft?: boolean | null
+          is_global?: boolean | null
+          muscles_trained?: string[] | null
+          name?: string | null
+          progression_id?: string | null
+          regression_id?: string | null
+          target_goal?: string | null
+          updated_at?: string | null
+          video_url_1?: string | null
+          video_url_2?: string | null
+        }
+        Update: {
+          coach_id?: string | null
+          created_at?: string | null
+          cues_and_tips?: string | null
+          default_unit?: string | null
+          difficulty?: string | null
+          equipment?: string | null
+          exercise_type?: string | null
+          id?: string | null
+          image?: string | null
+          instructions?: string | null
+          is_active?: boolean | null
+          is_draft?: boolean | null
+          is_global?: boolean | null
+          muscles_trained?: string[] | null
+          name?: string | null
+          progression_id?: string | null
+          regression_id?: string | null
+          target_goal?: string | null
+          updated_at?: string | null
+          video_url_1?: string | null
+          video_url_2?: string | null
+        }
+        Relationships: []
+      }
       exercise_overrides: {
         Row: {
           coach_id: string | null
@@ -1062,6 +1134,39 @@ export type Database = {
           },
         ]
       }
+      nutrition_targets: {
+        Row: {
+          calories: number
+          carbs: number
+          client_id: string | null
+          created_at: string | null
+          fats: number
+          id: string
+          protein: number
+          updated_at: string | null
+        }
+        Insert: {
+          calories?: number
+          carbs?: number
+          client_id?: string | null
+          created_at?: string | null
+          fats?: number
+          id?: string
+          protein?: number
+          updated_at?: string | null
+        }
+        Update: {
+          calories?: number
+          carbs?: number
+          client_id?: string | null
+          created_at?: string | null
+          fats?: number
+          id?: string
+          protein?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       program_assignments: {
         Row: {
           assigned_at: string | null
@@ -1205,6 +1310,87 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      recipes: {
+        Row: {
+          coach_id: string
+          cook_time: number | null
+          cover_photo: string | null
+          created_at: string | null
+          description: string | null
+          dietary_tag: Database["public"]["Enums"]["dietary_tag"] | null
+          difficulty: Database["public"]["Enums"]["difficulty_level"] | null
+          id: string
+          image_url: string | null
+          ingredients: Json | null
+          instructions: string[] | null
+          is_public: boolean | null
+          meal_type: Database["public"]["Enums"]["meal_type"] | null
+          name: string
+          prep_time: number | null
+          servings: number
+          short_description: string | null
+          tags: string[] | null
+          total_calories: number | null
+          total_carbs: number | null
+          total_fat: number | null
+          total_protein: number | null
+          updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          coach_id: string
+          cook_time?: number | null
+          cover_photo?: string | null
+          created_at?: string | null
+          description?: string | null
+          dietary_tag?: Database["public"]["Enums"]["dietary_tag"] | null
+          difficulty?: Database["public"]["Enums"]["difficulty_level"] | null
+          id?: string
+          image_url?: string | null
+          ingredients?: Json | null
+          instructions?: string[] | null
+          is_public?: boolean | null
+          meal_type?: Database["public"]["Enums"]["meal_type"] | null
+          name: string
+          prep_time?: number | null
+          servings?: number
+          short_description?: string | null
+          tags?: string[] | null
+          total_calories?: number | null
+          total_carbs?: number | null
+          total_fat?: number | null
+          total_protein?: number | null
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          coach_id?: string
+          cook_time?: number | null
+          cover_photo?: string | null
+          created_at?: string | null
+          description?: string | null
+          dietary_tag?: Database["public"]["Enums"]["dietary_tag"] | null
+          difficulty?: Database["public"]["Enums"]["difficulty_level"] | null
+          id?: string
+          image_url?: string | null
+          ingredients?: Json | null
+          instructions?: string[] | null
+          is_public?: boolean | null
+          meal_type?: Database["public"]["Enums"]["meal_type"] | null
+          name?: string
+          prep_time?: number | null
+          servings?: number
+          short_description?: string | null
+          tags?: string[] | null
+          total_calories?: number | null
+          total_carbs?: number | null
+          total_fat?: number | null
+          total_protein?: number | null
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Relationships: []
       }
       subscriptions: {
         Row: {
@@ -1674,6 +1860,15 @@ export type Database = {
       }
     }
     Enums: {
+      dietary_tag:
+        | "High Protein"
+        | "Antioxidants"
+        | "Low Carb"
+        | "Heart Healthy"
+        | "Anti-Inflammatory"
+        | "Fiber Rich"
+      difficulty_level: "Beginner" | "Intermediate" | "Advanced"
+      meal_type: "breakfast" | "lunch" | "dinner" | "snack"
       message_type: "text" | "image" | "file" | "voice" | "video"
       role_type: "Client" | "Coach"
     }
@@ -1803,6 +1998,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      dietary_tag: [
+        "High Protein",
+        "Antioxidants",
+        "Low Carb",
+        "Heart Healthy",
+        "Anti-Inflammatory",
+        "Fiber Rich",
+      ],
+      difficulty_level: ["Beginner", "Intermediate", "Advanced"],
+      meal_type: ["breakfast", "lunch", "dinner", "snack"],
       message_type: ["text", "image", "file", "voice", "video"],
       role_type: ["Client", "Coach"],
     },

@@ -12,10 +12,19 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronRight,
+  ChefHat,
+  Calendar,
+  Plus,
+  Trash2,
+  Edit,
+  Save,
+  X,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useAuth } from "@/lib/useAuth";
 import { useRouter } from "next/navigation";
+import { RecipeService } from "@/lib/recipeServices";
+import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 
 interface NutritionLog {
   id: string;
@@ -281,20 +290,34 @@ export default function NutritionHubPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-12 bg-gray-100 p-1 rounded-lg">
+        <TabsList className="grid w-full grid-cols-4 h-12 bg-gray-100 p-1 rounded-lg">
           <TabsTrigger
             value="clients"
-            className="flex items-center justify-center gap-2 px-4 py-2 text-base font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
           >
             <Users className="w-4 h-4" />
             Client Nutrition
           </TabsTrigger>
           <TabsTrigger
             value="analytics"
-            className="flex items-center justify-center gap-2 px-4 py-2 text-base font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
           >
             <BarChart3 className="w-4 h-4" />
             Analytics
+          </TabsTrigger>
+          <TabsTrigger
+            value="recipe-builder"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
+          >
+            <ChefHat className="w-4 h-4" />
+            Recipe Builder
+          </TabsTrigger>
+          <TabsTrigger
+            value="meal-plan-builder"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
+          >
+            <Calendar className="w-4 h-4" />
+            Meal Plan Builder
           </TabsTrigger>
         </TabsList>
 
@@ -308,6 +331,14 @@ export default function NutritionHubPage() {
 
         <TabsContent value="analytics" className="mt-8">
           <AnalyticsTab analytics={analytics} recentActivity={recentActivity} />
+        </TabsContent>
+
+        <TabsContent value="recipe-builder" className="mt-8">
+          <RecipeBuilderTab />
+        </TabsContent>
+
+        <TabsContent value="meal-plan-builder" className="mt-8">
+          <MealPlanBuilderTab />
         </TabsContent>
       </Tabs>
     </div>
@@ -722,6 +753,788 @@ function AnalyticsTab({ analytics, recentActivity }: AnalyticsTabProps) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+interface FoodItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+interface Recipe {
+  id: string;
+  name: string;
+  description: string;
+  servings: number;
+  prepTime: number;
+  cookTime: number;
+  difficulty: "Easy" | "Medium" | "Hard";
+  ingredients: FoodItem[];
+  instructions: string[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  tags: string[];
+}
+
+function RecipeBuilderTab() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [recipes, setRecipes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    recipeId: string;
+    recipeName: string;
+  }>({
+    isOpen: false,
+    recipeId: "",
+    recipeName: "",
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const router = useRouter();
+
+  const handleCreateRecipe = () => {
+    router.push("/nutrition-hub/recipe-builder");
+  };
+
+  const handleEditRecipe = (recipeId: string) => {
+    router.push(`/nutrition-hub/recipe-builder?edit=${recipeId}`);
+  };
+
+  const handleDeleteClick = (recipeId: string, recipeName: string) => {
+    setDeleteDialog({
+      isOpen: true,
+      recipeId,
+      recipeName,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      setIsDeleting(true);
+      await RecipeService.deleteRecipe(deleteDialog.recipeId);
+      
+      // Remove recipe from local state
+      setRecipes(prev => prev.filter(recipe => recipe.id !== deleteDialog.recipeId));
+      
+      // Close dialog
+      setDeleteDialog({
+        isOpen: false,
+        recipeId: "",
+        recipeName: "",
+      });
+    } catch (error) {
+      console.error("Error deleting recipe:", error);
+      alert("Failed to delete recipe. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({
+      isOpen: false,
+      recipeId: "",
+      recipeName: "",
+    });
+  };
+
+  // Fetch user's recipes
+  useEffect(() => {
+    const fetchRecipes = async () => {
+      try {
+        setLoading(true);
+        const userRecipes = await RecipeService.getUserRecipes();
+        setRecipes(userRecipes);
+      } catch (error) {
+        console.error("Error fetching recipes:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecipes();
+  }, []);
+
+  // Filter recipes based on search
+  const filteredRecipes = recipes.filter(
+    (recipe) =>
+      recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      recipe.short_description
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900">
+            Recipe Builder
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
+            Create and manage custom recipes
+          </p>
+        </div>
+        <Button
+          onClick={handleCreateRecipe}
+          className="flex items-center gap-2"
+        >
+          <ChefHat className="w-4 h-4" />
+          Create Recipe
+        </Button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            placeholder="Search recipes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      {/* Recipe List */}
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading recipes...</p>
+        </div>
+      ) : filteredRecipes.length === 0 ? (
+        <div className="text-center py-12">
+          <ChefHat className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h4 className="text-lg font-medium text-gray-900 mb-2">
+            {searchQuery ? "No recipes found" : "No recipes yet"}
+          </h4>
+          <p className="text-gray-500 mb-4">
+            {searchQuery
+              ? "Try adjusting your search terms"
+              : "Create your first recipe to get started"}
+          </p>
+          <Button onClick={handleCreateRecipe} variant="outline">
+            Create Recipe
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredRecipes.map((recipe) => (
+            <div
+              key={recipe.id}
+              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative group"
+            >
+              {/* Action Buttons */}
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditRecipe(recipe.id);
+                  }}
+                  className="p-1.5 bg-white rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors"
+                  title="Edit recipe"
+                >
+                  <Edit className="w-3.5 h-3.5 text-gray-600" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteClick(recipe.id, recipe.name);
+                  }}
+                  className="p-1.5 bg-white rounded-full shadow-sm border border-gray-200 hover:bg-red-50 hover:border-red-200 transition-colors"
+                  title="Delete recipe"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                </button>
+              </div>
+
+              {recipe.image_url || recipe.cover_photo ? (
+                <img
+                  src={recipe.image_url || recipe.cover_photo}
+                  alt={recipe.name}
+                  className="w-full h-32 object-cover rounded-md mb-3"
+                />
+              ) : (
+                <div className="w-full h-32 bg-gray-100 rounded-md mb-3 flex items-center justify-center">
+                  <ChefHat className="w-8 h-8 text-gray-400" />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <h5 className="font-semibold text-gray-900 line-clamp-1">
+                  {recipe.name}
+                </h5>
+
+                {recipe.short_description && (
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {recipe.short_description}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <span>⏱️ {recipe.prep_time + recipe.cook_time || 0} min</span>
+                  <span>🍽️ {recipe.servings} servings</span>
+                  <span>📊 {recipe.difficulty}</span>
+                </div>
+
+                {recipe.dietary_tag && (
+                  <div className="inline-block">
+                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                      {recipe.dietary_tag}
+                    </span>
+                  </div>
+                )}
+
+                {/* Nutrition Info */}
+                <div className="bg-gray-50 rounded-lg p-3 mt-3">
+                  <div className="text-xs font-medium text-gray-700 mb-2">Nutrition (per serving)</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Calories</span>
+                      <span className="font-medium text-green-700">
+                        {Math.round((recipe.total_calories || 0) / recipe.servings)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Protein</span>
+                      <span className="font-medium text-blue-700">
+                        {Math.round((recipe.total_protein || 0) / recipe.servings)}g
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Carbs</span>
+                      <span className="font-medium text-orange-700">
+                        {Math.round((recipe.total_carbs || 0) / recipe.servings)}g
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Fat</span>
+                      <span className="font-medium text-purple-700">
+                        {Math.round((recipe.total_fat || 0) / recipe.servings)}g
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div className="text-xs text-gray-500">
+                    Total: {Math.round(recipe.total_calories || 0)} cal
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {recipe.is_public && (
+                      <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                        Public
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Recipe"
+        message={`Are you sure you want to delete "${deleteDialog.recipeName}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+      />
+    </div>
+  );
+}
+
+interface MealPlan {
+  id: string;
+  name: string;
+  clientId: string;
+  clientName: string;
+  startDate: string;
+  endDate: string;
+  meals: {
+    date: string;
+    mealType: "breakfast" | "lunch" | "dinner" | "snack";
+    items: {
+      type: "recipe" | "food";
+      id: string;
+      name: string;
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+    }[];
+  }[];
+}
+
+function MealPlanBuilderTab() {
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [currentMealPlan, setCurrentMealPlan] = useState<MealPlan | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedMealType, setSelectedMealType] = useState<
+    "breakfast" | "lunch" | "dinner" | "snack"
+  >("breakfast");
+
+  const handleCreateMealPlan = () => {
+    const newMealPlan: MealPlan = {
+      id: Date.now().toString(),
+      name: "",
+      clientId: "",
+      clientName: "",
+      startDate: new Date().toISOString().split("T")[0],
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
+      meals: [],
+    };
+    setCurrentMealPlan(newMealPlan);
+    setShowCreateModal(true);
+  };
+
+  const handleSaveMealPlan = () => {
+    if (
+      currentMealPlan &&
+      currentMealPlan.name.trim() &&
+      currentMealPlan.clientId
+    ) {
+      setMealPlans((prev) => [...prev, currentMealPlan]);
+      setShowCreateModal(false);
+      setCurrentMealPlan(null);
+    }
+  };
+
+  const handleAddMeal = () => {
+    if (currentMealPlan && selectedDate && selectedMealType) {
+      const newMeal = {
+        date: selectedDate,
+        mealType: selectedMealType,
+        items: [],
+      };
+
+      setCurrentMealPlan({
+        ...currentMealPlan,
+        meals: [...currentMealPlan.meals, newMeal],
+      });
+    }
+  };
+
+  const handleAddFoodToMeal = (mealIndex: number, foodItem: any) => {
+    if (currentMealPlan) {
+      const updatedMeals = [...currentMealPlan.meals];
+      updatedMeals[mealIndex].items.push({
+        type: "food",
+        id: Date.now().toString(),
+        name: foodItem.name,
+        calories: foodItem.calories,
+        protein: foodItem.protein,
+        carbs: foodItem.carbs,
+        fat: foodItem.fat,
+      });
+
+      setCurrentMealPlan({
+        ...currentMealPlan,
+        meals: updatedMeals,
+      });
+    }
+  };
+
+  const handleAddRecipeToMeal = (mealIndex: number, recipe: Recipe) => {
+    if (currentMealPlan) {
+      const updatedMeals = [...currentMealPlan.meals];
+      updatedMeals[mealIndex].items.push({
+        type: "recipe",
+        id: recipe.id,
+        name: recipe.name,
+        calories: recipe.totalCalories,
+        protein: recipe.totalProtein,
+        carbs: recipe.totalCarbs,
+        fat: recipe.totalFat,
+      });
+
+      setCurrentMealPlan({
+        ...currentMealPlan,
+        meals: updatedMeals,
+      });
+    }
+  };
+
+  const handleRemoveMealItem = (mealIndex: number, itemIndex: number) => {
+    if (currentMealPlan) {
+      const updatedMeals = [...currentMealPlan.meals];
+      updatedMeals[mealIndex].items.splice(itemIndex, 1);
+
+      setCurrentMealPlan({
+        ...currentMealPlan,
+        meals: updatedMeals,
+      });
+    }
+  };
+
+  // Mock data for demonstration
+  useEffect(() => {
+    setClients([
+      { id: "1", name: "Huzefa Khety" },
+      { id: "2", name: "Bobby McLiftman" },
+    ]);
+    setRecipes([
+      {
+        id: "1",
+        name: "Protein Smoothie",
+        description: "High protein breakfast smoothie",
+        servings: 1,
+        prepTime: 5,
+        cookTime: 0,
+        difficulty: "Easy",
+        ingredients: [],
+        instructions: [],
+        totalCalories: 350,
+        totalProtein: 25,
+        totalCarbs: 30,
+        totalFat: 8,
+        tags: ["breakfast", "protein"],
+      },
+      {
+        id: "2",
+        name: "Grilled Chicken Salad",
+        description: "Healthy lunch option",
+        servings: 1,
+        prepTime: 10,
+        cookTime: 15,
+        difficulty: "Medium",
+        ingredients: [],
+        instructions: [],
+        totalCalories: 450,
+        totalProtein: 35,
+        totalCarbs: 15,
+        totalFat: 20,
+        tags: ["lunch", "salad"],
+      },
+    ]);
+  }, []);
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900">
+            Meal Plan Builder
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
+            Create personalized meal plans for your clients
+          </p>
+        </div>
+        <Button
+          onClick={handleCreateMealPlan}
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Create Meal Plan
+        </Button>
+      </div>
+
+      {/* Meal Plans List */}
+      <div className="space-y-4">
+        {mealPlans.length === 0 ? (
+          <div className="text-center py-12">
+            <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h4 className="text-lg font-medium text-gray-900 mb-2">
+              No meal plans yet
+            </h4>
+            <p className="text-gray-500 mb-4">
+              Create your first meal plan to get started
+            </p>
+            <Button onClick={handleCreateMealPlan} variant="outline">
+              Create Meal Plan
+            </Button>
+          </div>
+        ) : (
+          mealPlans.map((mealPlan) => (
+            <div
+              key={mealPlan.id}
+              className="border border-gray-200 rounded-lg p-4"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="font-medium text-gray-900">{mealPlan.name}</h4>
+                  <p className="text-sm text-gray-500">
+                    For {mealPlan.clientName}
+                  </p>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {mealPlan.startDate} - {mealPlan.endDate}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {mealPlan.meals.map((meal, mealIndex) => (
+                  <div key={mealIndex} className="bg-gray-50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium text-gray-900 capitalize">
+                        {meal.mealType}
+                      </h5>
+                      <span className="text-xs text-gray-500">{meal.date}</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      {meal.items.map((item, itemIndex) => (
+                        <div
+                          key={itemIndex}
+                          className="flex items-center justify-between text-xs"
+                        >
+                          <span className="text-gray-700">{item.name}</span>
+                          <span className="text-gray-500">
+                            {item.calories} cal
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Create Meal Plan Modal */}
+      {showCreateModal && currentMealPlan && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Create Meal Plan
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Basic Info */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Meal Plan Name *
+                  </label>
+                  <Input
+                    value={currentMealPlan.name}
+                    onChange={(e) =>
+                      setCurrentMealPlan({
+                        ...currentMealPlan,
+                        name: e.target.value,
+                      })
+                    }
+                    placeholder="Enter meal plan name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Client *
+                  </label>
+                  <select
+                    value={currentMealPlan.clientId}
+                    onChange={(e) => {
+                      const client = clients.find(
+                        (c) => c.id === e.target.value
+                      );
+                      setCurrentMealPlan({
+                        ...currentMealPlan,
+                        clientId: e.target.value,
+                        clientName: client?.name || "",
+                      });
+                    }}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select a client</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Duration
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={currentMealPlan.startDate}
+                      onChange={(e) =>
+                        setCurrentMealPlan({
+                          ...currentMealPlan,
+                          startDate: e.target.value,
+                        })
+                      }
+                    />
+                    <Input
+                      type="date"
+                      value={currentMealPlan.endDate}
+                      onChange={(e) =>
+                        setCurrentMealPlan({
+                          ...currentMealPlan,
+                          endDate: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Add Meal Section */}
+              <div className="border-t pt-6">
+                <h4 className="text-lg font-medium text-gray-900 mb-4">
+                  Add Meals
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Date
+                    </label>
+                    <Input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Meal Type
+                    </label>
+                    <select
+                      value={selectedMealType}
+                      onChange={(e) =>
+                        setSelectedMealType(e.target.value as any)
+                      }
+                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="breakfast">Breakfast</option>
+                      <option value="lunch">Lunch</option>
+                      <option value="dinner">Dinner</option>
+                      <option value="snack">Snack</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      onClick={handleAddMeal}
+                      disabled={!selectedDate || !selectedMealType}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Meal
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Meals List */}
+                <div className="space-y-4">
+                  {currentMealPlan.meals.map((meal, mealIndex) => (
+                    <div
+                      key={mealIndex}
+                      className="border border-gray-200 rounded-lg p-4"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="font-medium text-gray-900 capitalize">
+                          {meal.mealType} - {meal.date}
+                        </h5>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm">
+                            Add Food
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            Add Recipe
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {meal.items.map((item, itemIndex) => (
+                          <div
+                            key={itemIndex}
+                            className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded capitalize">
+                                {item.type}
+                              </span>
+                              <span className="text-sm font-medium">
+                                {item.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-500">
+                                {item.calories} cal
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  handleRemoveMealItem(mealIndex, itemIndex)
+                                }
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {meal.items.length === 0 && (
+                          <div className="text-center py-4 text-gray-500 text-sm">
+                            No items added yet
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveMealPlan}
+                disabled={
+                  !currentMealPlan.name.trim() || !currentMealPlan.clientId
+                }
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Save Meal Plan
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
