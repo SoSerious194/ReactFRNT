@@ -3,10 +3,11 @@ import { FormService } from "@/lib/formServices";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { formId: string } }
+  { params }: { params: Promise<{ formId: string }> }
 ) {
   try {
     const { clientId, responses } = await request.json();
+    const { formId } = await params;
 
     if (!clientId || !responses) {
       return NextResponse.json(
@@ -17,7 +18,7 @@ export async function POST(
 
     const formService = new FormService();
     const success = await formService.submitFormResponse(
-      params.formId,
+      formId,
       clientId,
       responses
     );

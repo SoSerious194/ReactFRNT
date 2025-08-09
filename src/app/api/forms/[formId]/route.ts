@@ -3,11 +3,12 @@ import { FormService } from "@/lib/formServices";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { formId: string } }
+  { params }: { params: Promise<{ formId: string }> }
 ) {
   try {
+    const { formId } = await params;
     const formService = new FormService();
-    const form = await formService.getFormForMobile(params.formId);
+    const form = await formService.getFormForMobile(formId);
 
     if (!form) {
       return NextResponse.json({ error: "Form not found" }, { status: 404 });

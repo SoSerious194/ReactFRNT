@@ -53,8 +53,22 @@ export type Database = {
             foreignKeyName: "client_meal_plans_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "client_meal_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_meal_plans_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "client_meal_plans_coach_id_fkey"
@@ -103,6 +117,13 @@ export type Database = {
           workout_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "client_program_days_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "client_program_days_client_id_fkey"
             columns: ["client_id"]
@@ -162,6 +183,13 @@ export type Database = {
           workout_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "client_schedule_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "client_schedule_client_id_fkey"
             columns: ["client_id"]
@@ -226,6 +254,13 @@ export type Database = {
           workout_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "completed_exercise_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "completed_exercise_logs_client_id_fkey"
             columns: ["client_id"]
@@ -299,6 +334,13 @@ export type Database = {
             foreignKeyName: "completed_workouts_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "completed_workouts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -352,8 +394,22 @@ export type Database = {
             foreignKeyName: "direct_conversations_user_one_id_fkey"
             columns: ["user_one_id"]
             isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "direct_conversations_user_one_id_fkey"
+            columns: ["user_one_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_conversations_user_two_id_fkey"
+            columns: ["user_two_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "direct_conversations_user_two_id_fkey"
@@ -435,6 +491,13 @@ export type Database = {
           video_url_2?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "exercise_library_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "exercise_library_coach_id_fkey"
             columns: ["coach_id"]
@@ -556,6 +619,13 @@ export type Database = {
           id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "exercise_overrides_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "exercise_overrides_coach_id_fkey"
             columns: ["coach_id"]
@@ -809,6 +879,13 @@ export type Database = {
             foreignKeyName: "form_responses_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "form_responses_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -850,6 +927,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "forms_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "forms_coach_id_fkey"
             columns: ["coach_id"]
@@ -946,10 +1030,129 @@ export type Database = {
             foreignKeyName: "meadow_chat_messages_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "meadow_chat_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
+      }
+      meal_plan_days: {
+        Row: {
+          created_at: string | null
+          day_number: number
+          id: string
+          meal_plan_id: string
+          week_number: number
+        }
+        Insert: {
+          created_at?: string | null
+          day_number: number
+          id?: string
+          meal_plan_id: string
+          week_number: number
+        }
+        Update: {
+          created_at?: string | null
+          day_number?: number
+          id?: string
+          meal_plan_id?: string
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_days_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plan_complete"
+            referencedColumns: ["meal_plan_id"]
+          },
+          {
+            foreignKeyName: "meal_plan_days_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_days_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["meal_plan_id"]
+          },
+        ]
+      }
+      meal_plan_meals: {
+        Row: {
+          created_at: string | null
+          id: string
+          meal_plan_day_id: string
+          meal_type: string
+          recipe_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          meal_plan_day_id: string
+          meal_type: string
+          recipe_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          meal_plan_day_id?: string
+          meal_type?: string
+          recipe_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_meals_meal_plan_day_id_fkey"
+            columns: ["meal_plan_day_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plan_days"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_meals_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_plans: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       messages: {
         Row: {
@@ -989,6 +1192,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "direct_conversations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "messages_sender_id_fkey"
@@ -1122,8 +1332,22 @@ export type Database = {
             foreignKeyName: "nutrition_logs_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "nutrition_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nutrition_logs_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "nutrition_logs_coach_id_fkey"
@@ -1193,6 +1417,13 @@ export type Database = {
           start_date?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "program_assignments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "program_assignments_client_id_fkey"
             columns: ["client_id"]
@@ -1302,6 +1533,13 @@ export type Database = {
           name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "programs_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "programs_coach_id_fkey"
             columns: ["coach_id"]
@@ -1431,6 +1669,13 @@ export type Database = {
             foreignKeyName: "subscriptions_user_email_fkey"
             columns: ["user_email"]
             isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["email"]
+          },
+          {
+            foreignKeyName: "subscriptions_user_email_fkey"
+            columns: ["user_email"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["email"]
           },
@@ -1467,6 +1712,55 @@ export type Database = {
         }
         Relationships: []
       }
+      user_meal_plans: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string
+          id: string
+          is_active: boolean | null
+          meal_plan_id: string
+          user_id: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by: string
+          id?: string
+          is_active?: boolean | null
+          meal_plan_id: string
+          user_id?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string
+          id?: string
+          is_active?: boolean | null
+          meal_plan_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_meal_plans_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plan_complete"
+            referencedColumns: ["meal_plan_id"]
+          },
+          {
+            foreignKeyName: "user_meal_plans_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_meal_plans_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["meal_plan_id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1490,6 +1784,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
           {
             foreignKeyName: "user_roles_user_id_fkey"
             columns: ["user_id"]
@@ -1589,8 +1890,22 @@ export type Database = {
             foreignKeyName: "water_logs_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "water_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "water_logs_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "water_logs_coach_id_fkey"
@@ -1703,6 +2018,13 @@ export type Database = {
             foreignKeyName: "workspaces_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "workspaces_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -1739,6 +2061,47 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meal_plan_complete: {
+        Row: {
+          coach_id: string | null
+          created_at: string | null
+          day_number: number | null
+          description: string | null
+          meal_plan_id: string | null
+          meal_type: string | null
+          recipe_id: string | null
+          recipe_name: string | null
+          title: string | null
+          total_calories: number | null
+          total_carbs: number | null
+          total_fat: number | null
+          total_protein: number | null
+          updated_at: string | null
+          week_number: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_meals_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_active_meal_plan: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          description: string | null
+          email: string | null
+          full_name: string | null
+          meal_plan_id: string | null
+          title: string | null
+          user_id: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {

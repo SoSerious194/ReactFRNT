@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -11,7 +11,6 @@ import {
   Sun,
   Moon,
   Apple,
-  Utensils,
   Search,
   Sunrise,
 } from "lucide-react";
@@ -104,7 +103,7 @@ interface Recipe {
     | "Fiber Rich";
 }
 
-export default function RecipeBuilderPage() {
+function RecipeBuilderPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editRecipeId = searchParams.get("edit");
@@ -1294,5 +1293,19 @@ export default function RecipeBuilderPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RecipeBuilderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-gray-500">Loading...</div>
+        </div>
+      }
+    >
+      <RecipeBuilderPageContent />
+    </Suspense>
   );
 }

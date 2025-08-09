@@ -75,6 +75,24 @@ export class RecipeService {
   }
 
   /**
+   * Get multiple recipes by their IDs
+   */
+  static async getRecipesByIds(ids: string[]): Promise<Recipe[]> {
+    if (ids.length === 0) return [];
+
+    const { data: recipes, error } = await supabase
+      .from("recipes")
+      .select("*")
+      .in("id", ids);
+
+    if (error) {
+      throw new Error(`Failed to fetch recipes: ${error.message}`);
+    }
+
+    return recipes || [];
+  }
+
+  /**
    * Get all recipes for the current user
    */
   static async getUserRecipes(): Promise<Recipe[]> {
