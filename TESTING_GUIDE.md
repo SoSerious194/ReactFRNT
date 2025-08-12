@@ -166,6 +166,11 @@ curl -X POST https://your-app.vercel.app/api/qstash-schedule \
 
 **Solution:** ✅ **FIXED** - Channel IDs are now sanitized to remove special characters and use safe format.
 
+#### **Issue: "Can't find channel with id messaging:messaging_..."**
+**Cause:** Channel ID was being constructed with duplicate "messaging" prefix.
+
+**Solution:** ✅ **FIXED** - Removed duplicate prefix from channel ID construction.
+
 #### **Issue: Messages not being scheduled**
 **Check:**
 - QStash token is correct

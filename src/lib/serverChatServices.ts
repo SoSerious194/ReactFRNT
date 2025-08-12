@@ -31,7 +31,7 @@ export class ServerChatServices {
       // Remove any special characters and use a safe format
       const safeCoachId = coachId.replace(/[^a-zA-Z0-9]/g, '');
       const safeClientId = clientId.replace(/[^a-zA-Z0-9]/g, '');
-      const channelId = `messaging_${safeCoachId}_${safeClientId}`;
+      const channelId = `${safeCoachId}_${safeClientId}`;
       
       // Get or create the channel
       const channel = serverStreamClient.channel("messaging", channelId, {
@@ -106,7 +106,7 @@ export class ServerChatServices {
       // Remove any special characters and use a safe format
       const safeCoachId = coachId.replace(/[^a-zA-Z0-9]/g, '');
       const safeClientId = clientId.replace(/[^a-zA-Z0-9]/g, '');
-      const channelId = `messaging_${safeCoachId}_${safeClientId}`;
+      const channelId = `${safeCoachId}_${safeClientId}`;
       
       // Get or create the channel
       const channel = serverStreamClient.channel("messaging", channelId, {
