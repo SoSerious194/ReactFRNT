@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/client";
-import { ChatServices } from "./chatServices";
+import { ServerChatServices } from "./serverChatServices";
 import {
   MessageTemplate,
   ScheduledMessage,
@@ -343,25 +343,26 @@ export class MessageSchedulerServices {
       if (userError)
         throw new Error(`Failed to fetch user: ${userError.message}`);
 
-      // Send message via GetStream
+      // Send message via GetStream using server-side service
       let streamMessageId: string | undefined;
       try {
-        const streamClient = ChatServices.getStreamClient();
-        if (streamClient && streamClient.userID) {
-          // Create or get channel
-          const channel = await ChatServices.getOrCreateChannel(
-            message.coach_id,
-            userId,
-            user.full_name || user.email || "User"
-          );
+        // Ensure both users exist in GetStream
+        await ServerChatServices.createOrUpdateUser(
+          message.coach_id,
+          "Coach" // You might want to get coach name from database
+        );
+        await ServerChatServices.createOrUpdateUser(
+          userId,
+          user.full_name || user.email || "User"
+        );
 
-          // Send the message
-          const sentMessage = await channel.sendMessage({
-            text: message.content,
-          });
-
-          streamMessageId = sentMessage.message?.id;
-        }
+        // Send the message
+        const messageId = await ServerChatServices.sendMessageFromCoach(
+          message.coach_id,
+          userId,
+          message.content
+        );
+        streamMessageId = messageId || undefined;
       } catch (streamError) {
         console.error("Failed to send message via GetStream:", streamError);
         // Continue to record delivery even if GetStream fails
