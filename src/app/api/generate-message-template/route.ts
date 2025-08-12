@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
             content: prompt,
           },
         ],
-        max_tokens: 500,
+        max_tokens: 800,
         temperature: 0.7,
       }),
     });
@@ -129,12 +129,19 @@ ${
     : ""
 }
 
+IMPORTANT REQUIREMENTS:
+- Do NOT include any client names or personal references
+- Use generic, professional language that works for any client
+- Keep messages concise and actionable
+- Focus on motivation, encouragement, and clear next steps
+- Maximum 200 words for the main content
+
 Please provide:
 1. A compelling title (max 50 characters)
 2. The message content (max 200 words)
 3. 3-5 alternative suggestions for different variations
 
-Format your response as:
+Format your response EXACTLY as follows:
 TITLE: [title]
 CONTENT: [content]
 SUGGESTIONS:
@@ -144,7 +151,7 @@ SUGGESTIONS:
 - [suggestion 4]
 - [suggestion 5]
 
-Make the message engaging, personal, and actionable.`;
+Make the message engaging, professional, and actionable without using any specific names.`;
 
   return prompt;
 }
@@ -154,7 +161,26 @@ function parseGeneratedContent(content: string): {
   content: string;
   suggestions: string[];
 } {
-  const lines = content
+  // Clean up the content
+  const cleanContent = content.trim();
+
+  // If content is too short or incomplete, return default
+  if (cleanContent.length < 20) {
+    return {
+      title: "Generated Template",
+      content:
+        "Thank you for your dedication to your fitness journey! Keep up the great work and stay consistent with your goals.",
+      suggestions: [
+        "Keep up the great work!",
+        "You're making amazing progress!",
+        "Stay consistent and results will follow!",
+        "Your dedication is inspiring!",
+        "Every step forward counts!",
+      ],
+    };
+  }
+
+  const lines = cleanContent
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line);
@@ -179,7 +205,7 @@ function parseGeneratedContent(content: string): {
 
   // Fallback parsing if structured format fails
   if (!title || !messageContent) {
-    const sections = content.split("\n\n");
+    const sections = cleanContent.split("\n\n");
     if (sections.length >= 2) {
       title = sections[0].replace(/^.*?:/, "").trim();
       messageContent = sections[1].replace(/^.*?:/, "").trim();
@@ -187,23 +213,46 @@ function parseGeneratedContent(content: string): {
       // Extract suggestions from remaining sections
       for (let i = 2; i < sections.length; i++) {
         const suggestion = sections[i].replace(/^[-•*]\s*/, "").trim();
-        if (suggestion) {
+        if (suggestion && suggestion.length > 5) {
           suggestions.push(suggestion);
         }
       }
     }
   }
 
+  // If still no content, treat the entire response as content
+  if (!title && !messageContent) {
+    const words = cleanContent.split(" ");
+    if (words.length <= 10) {
+      title = "Generated Template";
+      messageContent = cleanContent;
+    } else {
+      title = words.slice(0, 3).join(" ") + "...";
+      messageContent = cleanContent;
+    }
+  }
+
   // Ensure we have at least some content
   if (!title) title = "Generated Template";
-  if (!messageContent)
-    messageContent = "Thank you for your dedication to your fitness journey!";
+  if (!messageContent) {
+    messageContent =
+      "Thank you for your dedication to your fitness journey! Keep up the great work and stay consistent with your goals.";
+  }
+
   if (suggestions.length === 0) {
     suggestions = [
       "Keep up the great work!",
       "You're making amazing progress!",
       "Stay consistent and results will follow!",
+      "Your dedication is inspiring!",
+      "Every step forward counts!",
     ];
+  }
+
+  // Clean up any incomplete content
+  if (messageContent.length < 10) {
+    messageContent =
+      "Thank you for your dedication to your fitness journey! Keep up the great work and stay consistent with your goals.";
   }
 
   return { title, content: messageContent, suggestions };
