@@ -90,7 +90,7 @@ export default function MessageSchedulerSection() {
     end_date: "",
     start_time: "09:00",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Use local timezone
-    target_type: "all" as "all" | "individual" | "specific",
+    target_type: "all" as "all" | "specific",
     target_user_ids: [] as string[],
     frequency_config: {} as any,
   });
@@ -325,8 +325,6 @@ export default function MessageSchedulerSection() {
     }
   };
 
-
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
@@ -398,7 +396,6 @@ export default function MessageSchedulerSection() {
             <Sparkles className="w-4 h-4 mr-2" />
             AI Template
           </Button>
-
         </div>
       </div>
 
@@ -647,9 +644,6 @@ export default function MessageSchedulerSection() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Clients</SelectItem>
-                    <SelectItem value="individual">
-                      Individual Client
-                    </SelectItem>
                     <SelectItem value="specific">Specific Clients</SelectItem>
                   </SelectContent>
                 </Select>
@@ -828,8 +822,6 @@ export default function MessageSchedulerSection() {
                           <p className="text-gray-600">
                             {message.target_type === "all"
                               ? "All Clients"
-                              : message.target_type === "individual"
-                              ? "Individual Client"
                               : `${message.target_user_ids.length} specific clients`}
                           </p>
                         </div>

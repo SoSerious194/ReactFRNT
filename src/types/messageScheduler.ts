@@ -33,7 +33,7 @@ export interface ScheduledMessage {
   };
 
   // Targeting options
-  target_type: "all" | "individual" | "specific";
+  target_type: "all" | "specific";
   target_user_ids: string[];
 
   // Status

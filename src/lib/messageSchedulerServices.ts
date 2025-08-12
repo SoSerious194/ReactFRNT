@@ -171,7 +171,11 @@ export class MessageSchedulerServices {
   private static createCronExpression(
     request: CreateScheduledMessageRequest
   ): string {
+    // For now, use the time as-is and let QStash handle timezone
+    // TODO: Implement proper timezone conversion
     const [hours, minutes] = request.start_time.split(":").map(Number);
+    
+    console.log(`Creating cron for ${request.start_time} (${hours}:${minutes})`);
 
     switch (request.schedule_type) {
       case "daily":

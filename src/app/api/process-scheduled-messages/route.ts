@@ -4,11 +4,21 @@ import { MessageSchedulerServices } from "@/lib/messageSchedulerServices";
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("=== PROCESS SCHEDULED MESSAGES ENDPOINT CALLED ===");
+    console.log("Headers:", Object.fromEntries(request.headers.entries()));
+    
     // Check for API key to secure this endpoint
     const authHeader = request.headers.get('authorization');
     const expectedKey = process.env.SCHEDULER_API_KEY;
     
+    console.log("Auth check:", { 
+      hasAuthHeader: !!authHeader, 
+      hasExpectedKey: !!expectedKey,
+      authMatches: authHeader === `Bearer ${expectedKey}`
+    });
+    
     if (!expectedKey || authHeader !== `Bearer ${expectedKey}`) {
+      console.log("Unauthorized request");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -17,11 +27,15 @@ export async function POST(request: NextRequest) {
     // Parse request body for QStash integration
     const body = await request.json();
     const { messageId, coachId, recurring } = body;
+    
+    console.log("Processing scheduled message request:", { messageId, coachId, recurring, body });
 
     let messagesToProcess: any[] = [];
 
     if (messageId) {
       // Process specific message (from QStash)
+      console.log(`Processing specific message: ${messageId} for coach: ${coachId}`);
+      
       const { data: message, error } = await supabase
         .from("scheduled_messages")
         .select("*")
@@ -32,10 +46,11 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error || !message) {
-        console.error("Message not found or inactive:", messageId);
+        console.error("Message not found or inactive:", messageId, error);
         return NextResponse.json({ error: "Message not found" }, { status: 404 });
       }
 
+      console.log("Found message to process:", message);
       messagesToProcess = [message];
     } else {
       // Fallback: Process all messages (for manual testing)
@@ -98,11 +113,15 @@ export async function POST(request: NextRequest) {
           targetUsers = users || [];
         }
 
+        console.log(`Sending message to ${targetUsers.length} users`);
+        
         // Send message to each target user
         for (const user of targetUsers) {
           try {
+            console.log(`Sending message ${message.id} to user ${user.id}`);
             await MessageSchedulerServices.sendScheduledMessage(message.id, user.id);
             processedCount++;
+            console.log(`Successfully sent message to user ${user.id}`);
           } catch (sendError) {
             console.error(`Failed to send message ${message.id} to user ${user.id}:`, sendError);
             results.push({
@@ -113,20 +132,24 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Update next send time for recurring messages
-        if (message.schedule_type !== 'once') {
-          const nextSendTime = calculateNextSendTime(message);
-          if (nextSendTime) {
-            await supabase
-              .from("scheduled_messages")
-              .update({ next_send_at: nextSendTime })
-              .eq("id", message.id);
-          }
-        } else {
+        // Update message status and next send time
+        if (message.schedule_type === 'once') {
           // Mark one-time messages as completed
           await supabase
             .from("scheduled_messages")
-            .update({ status: 'completed' })
+            .update({ 
+              status: 'completed',
+              last_sent_at: new Date().toISOString()
+            })
+            .eq("id", message.id);
+        } else {
+          // For recurring messages, update last sent time
+          // QStash handles the next execution via cron
+          await supabase
+            .from("scheduled_messages")
+            .update({ 
+              last_sent_at: new Date().toISOString()
+            })
             .eq("id", message.id);
         }
 
@@ -155,22 +178,4 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function calculateNextSendTime(message: any): string | null {
-  const now = new Date();
-  
-  switch (message.schedule_type) {
-    case 'daily':
-      return new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-      
-    case 'weekly':
-      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      return nextWeek.toISOString();
-      
-    case 'monthly':
-      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
-      return nextMonth.toISOString();
-      
-    default:
-      return null;
-  }
-}
+

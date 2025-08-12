@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       qstashId = result.messageId || "unknown";
     } else {
       // Recurring message with cron
+      console.log(`Creating recurring schedule with cron: ${cronExpression}`);
       const result = await qstash.schedules.create({
         destination: `${process.env.NEXT_PUBLIC_APP_URL}/api/process-scheduled-messages`,
         cron: cronExpression,
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
       });
 
       qstashId = result.scheduleId;
+      console.log(`Created QStash schedule with ID: ${qstashId}`);
     }
 
     return NextResponse.json({
