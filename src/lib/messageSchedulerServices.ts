@@ -178,18 +178,15 @@ export class MessageSchedulerServices {
       .map(Number);
 
     console.log(
-      `Creating cron for ${request.start_time} in timezone ${timezone}`
+      `Creating cron for ${request.start_time} on ${request.start_date} in timezone ${timezone}`
     );
 
-    // Simple timezone offset calculation
-    // For now, let's assume the timezone is the user's local timezone
-    // and convert it to UTC by getting the offset
-    const now = new Date();
-    const localOffset = now.getTimezoneOffset(); // minutes
+    // Create a date with the specified start date and local time
+    const [year, month, day] = request.start_date.split("-").map(Number);
+    const localDate = new Date(year, month - 1, day, localHours, localMinutes, 0, 0);
 
-    // Create a date with the specified local time
-    const localDate = new Date();
-    localDate.setHours(localHours, localMinutes, 0, 0);
+    // Get the timezone offset for this specific date (important for DST)
+    const localOffset = localDate.getTimezoneOffset(); // minutes
 
     // Convert to UTC by adding the offset
     const utcDate = new Date(localDate.getTime() + localOffset * 60 * 1000);
@@ -198,7 +195,7 @@ export class MessageSchedulerServices {
     const utcMinutes = utcDate.getUTCMinutes();
 
     console.log(
-      `Local time ${localHours}:${localMinutes} -> UTC ${utcHours}:${utcMinutes} (offset: ${localOffset} minutes)`
+      `Local time ${localHours}:${localMinutes} on ${request.start_date} -> UTC ${utcHours}:${utcMinutes} (offset: ${localOffset} minutes)`
     );
 
     switch (request.schedule_type) {

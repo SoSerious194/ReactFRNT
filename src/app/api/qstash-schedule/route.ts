@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
     } else {
       // Recurring message with cron
       console.log(`Creating recurring schedule with cron: ${cronExpression}`);
+      console.log(`Scheduled time: ${scheduledTime}`);
+      
+      // For now, let's try without delay and see if QStash handles it correctly
+      // TODO: Check if QStash supports delay for schedules
       const result = await qstash.schedules.create({
         destination: `${process.env.NEXT_PUBLIC_APP_URL}/api/process-scheduled-messages`,
         cron: cronExpression,
