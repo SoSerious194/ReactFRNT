@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/client";
 import { ChatServices } from "./chatServices";
+import { QStashService } from "./qstashService";
 import {
   MessageTemplate,
   ScheduledMessage,
@@ -99,6 +100,7 @@ export class MessageSchedulerServices {
     coachId: string,
     request: CreateScheduledMessageRequest
   ): Promise<ScheduledMessage> {
+    // Create the scheduled message in database
     const { data, error } = await supabase
       .from("scheduled_messages")
       .insert({
@@ -120,7 +122,62 @@ export class MessageSchedulerServices {
 
     if (error)
       throw new Error(`Failed to create scheduled message: ${error.message}`);
+
+    // Schedule the message with QStash
+    try {
+      const scheduledDateTime = new Date(`${request.start_date}T${request.start_time}`);
+      
+      if (request.schedule_type === "once") {
+        // One-time message
+        const qstashId = await QStashService.scheduleMessage(
+          data.id,
+          scheduledDateTime,
+          coachId
+        );
+        
+        // Update the message with QStash ID
+        await supabase
+          .from("scheduled_messages")
+          .update({ qstash_id: qstashId })
+          .eq("id", data.id);
+      } else {
+        // Recurring message - create cron expression
+        const cronExpression = this.createCronExpression(request);
+        const qstashId = await QStashService.scheduleRecurringMessage(
+          data.id,
+          cronExpression,
+          coachId
+        );
+        
+        // Update the message with QStash ID
+        await supabase
+          .from("scheduled_messages")
+          .update({ qstash_id: qstashId })
+          .eq("id", data.id);
+      }
+    } catch (qstashError) {
+      console.error("Failed to schedule with QStash:", qstashError);
+      // Continue without QStash - will use manual processing
+    }
+
     return data;
+  }
+
+  private static createCronExpression(request: CreateScheduledMessageRequest): string {
+    const [hours, minutes] = request.start_time.split(':').map(Number);
+    
+    switch (request.schedule_type) {
+      case "daily":
+        return `${minutes} ${hours} * * *`;
+      case "weekly":
+        const dayOfWeek = request.frequency_config?.dayOfWeek?.[0] || 1;
+        return `${minutes} ${hours} * * ${dayOfWeek}`;
+      case "monthly":
+        const dayOfMonth = request.frequency_config?.dayOfMonth || 1;
+        return `${minutes} ${hours} ${dayOfMonth} * *`;
+      default:
+        return `${minutes} ${hours} * * *`; // Default to daily
+    }
   }
 
   static async getScheduledMessages(

@@ -325,35 +325,7 @@ export default function MessageSchedulerSection() {
     }
   };
 
-  const handleTestScheduler = async () => {
-    if (!user) return;
 
-    try {
-      const response = await fetch("/api/test-scheduler", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          coachId: user.id,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        alert(
-          `Test completed! Processed ${result.processed} messages out of ${result.total} total.`
-        );
-        loadScheduledMessages(); // Refresh the list
-      } else {
-        alert(`Error: ${result.error}`);
-      }
-    } catch (error) {
-      console.error("Failed to test scheduler:", error);
-      alert("Failed to test scheduler. Check console for details.");
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -426,13 +398,7 @@ export default function MessageSchedulerSection() {
             <Sparkles className="w-4 h-4 mr-2" />
             AI Template
           </Button>
-          <Button
-            variant="outline"
-            onClick={handleTestScheduler}
-            disabled={!user}
-          >
-            Test Scheduler
-          </Button>
+
         </div>
       </div>
 

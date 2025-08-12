@@ -1,8 +1,7 @@
 {
-  "crons": [
-    {
-      "path": "/api/process-scheduled-messages",
-      "schedule": "*/5 * * * *"
+  "webpack": {
+    "externals": {
+      "canvas": "canvas"
     }
-  ]
+  }
 }

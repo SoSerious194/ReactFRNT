@@ -14,50 +14,70 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
     
-    // Get all active scheduled messages
-    const { data: allScheduledMessages, error } = await supabase
-      .from("scheduled_messages")
-      .select("*")
-      .eq("status", "active")
-      .eq("is_active", true);
+    // Parse request body for QStash integration
+    const body = await request.json();
+    const { messageId, coachId, recurring } = body;
 
-    if (error) {
-      console.error("Error fetching scheduled messages:", error);
-      return NextResponse.json({ error: "Failed to fetch scheduled messages" }, { status: 500 });
-    }
+    let messagesToProcess: any[] = [];
 
-    if (!allScheduledMessages || allScheduledMessages.length === 0) {
-      return NextResponse.json({ message: "No messages to process", processed: 0 });
-    }
+    if (messageId) {
+      // Process specific message (from QStash)
+      const { data: message, error } = await supabase
+        .from("scheduled_messages")
+        .select("*")
+        .eq("id", messageId)
+        .eq("coach_id", coachId)
+        .eq("status", "active")
+        .eq("is_active", true)
+        .single();
 
-    // Filter messages that need to be sent based on timezone-aware comparison
-    const now = new Date();
-    const scheduledMessages = allScheduledMessages.filter(message => {
-      try {
-        // Create a date object from the scheduled date and time
-        const scheduledDateTime = new Date(`${message.start_date}T${message.start_time}`);
-        
-        // Convert to the message's timezone
-        const scheduledInTimezone = new Date(scheduledDateTime.toLocaleString("en-US", { 
-          timeZone: message.timezone || "UTC" 
-        }));
-        
-        // Compare with current time
-        return scheduledInTimezone <= now;
-      } catch (error) {
-        console.error("Error processing message time:", error);
-        return false;
+      if (error || !message) {
+        console.error("Message not found or inactive:", messageId);
+        return NextResponse.json({ error: "Message not found" }, { status: 404 });
       }
-    });
 
-    if (!scheduledMessages || scheduledMessages.length === 0) {
-      return NextResponse.json({ message: "No messages to process", processed: 0 });
+      messagesToProcess = [message];
+    } else {
+      // Fallback: Process all messages (for manual testing)
+      const { data: allScheduledMessages, error } = await supabase
+        .from("scheduled_messages")
+        .select("*")
+        .eq("status", "active")
+        .eq("is_active", true);
+
+      if (error) {
+        console.error("Error fetching scheduled messages:", error);
+        return NextResponse.json({ error: "Failed to fetch scheduled messages" }, { status: 500 });
+      }
+
+      if (!allScheduledMessages || allScheduledMessages.length === 0) {
+        return NextResponse.json({ message: "No messages to process", processed: 0 });
+      }
+
+      // Filter messages that need to be sent
+      const now = new Date();
+      messagesToProcess = allScheduledMessages.filter(message => {
+        try {
+          const scheduledDateTime = new Date(`${message.start_date}T${message.start_time}`);
+          const scheduledInTimezone = new Date(scheduledDateTime.toLocaleString("en-US", { 
+            timeZone: message.timezone || "UTC" 
+          }));
+          return scheduledInTimezone <= now;
+        } catch (error) {
+          console.error("Error processing message time:", error);
+          return false;
+        }
+      });
+
+      if (messagesToProcess.length === 0) {
+        return NextResponse.json({ message: "No messages to process", processed: 0 });
+      }
     }
 
     let processedCount = 0;
     const results = [];
 
-    for (const message of scheduledMessages) {
+    for (const message of messagesToProcess) {
       try {
         // Determine target users
         let targetUsers: any[] = [];
@@ -122,7 +142,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: "Scheduled messages processed",
       processed: processedCount,
-      total: scheduledMessages.length,
+      total: messagesToProcess.length,
       errors: results
     });
 
