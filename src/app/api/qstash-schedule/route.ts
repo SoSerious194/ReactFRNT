@@ -47,25 +47,61 @@ export async function POST(request: NextRequest) {
       // Recurring message with cron
       console.log(`Creating recurring schedule with cron: ${cronExpression}`);
       console.log(`Scheduled time: ${scheduledTime}`);
-      
-      // For now, let's try without delay and see if QStash handles it correctly
-      // TODO: Check if QStash supports delay for schedules
-      const result = await qstash.schedules.create({
-        destination: `${process.env.NEXT_PUBLIC_APP_URL}/api/process-scheduled-messages`,
-        cron: cronExpression,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.SCHEDULER_API_KEY}`,
-        },
-        body: JSON.stringify({
-          messageId,
-          coachId,
-          recurring: true,
-        }),
-      });
 
-      qstashId = result.scheduleId;
-      console.log(`Created QStash schedule with ID: ${qstashId}`);
+      // Calculate delay until start date
+      const startDateTime = new Date(scheduledTime);
+      const now = new Date();
+      const delayInSeconds = Math.max(
+        0,
+        Math.floor((startDateTime.getTime() - now.getTime()) / 1000)
+      );
+
+      console.log(
+        `Start date: ${startDateTime.toISOString()}, Delay: ${delayInSeconds} seconds`
+      );
+
+      if (delayInSeconds > 0) {
+        // If the start date is in the future, create a delayed one-time message
+        // that will trigger the recurring schedule at the correct time
+        console.log(
+          `Creating delayed one-time message to start recurring schedule`
+        );
+
+        const delayedResult = await qstash.publishJSON({
+          url: `${process.env.NEXT_PUBLIC_APP_URL}/api/start-recurring-schedule`,
+          body: {
+            messageId,
+            coachId,
+            cronExpression,
+            recurring: true,
+          },
+          delay: delayInSeconds,
+          headers: {
+            Authorization: `Bearer ${process.env.SCHEDULER_API_KEY}`,
+          },
+        });
+
+        qstashId = delayedResult.messageId || "delayed-start";
+        console.log(`Created delayed start message with ID: ${qstashId}`);
+      } else {
+        // If the start date is now or in the past, create the recurring schedule immediately
+        const result = await qstash.schedules.create({
+          destination: `${process.env.NEXT_PUBLIC_APP_URL}/api/process-scheduled-messages`,
+          cron: cronExpression,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.SCHEDULER_API_KEY}`,
+          },
+          body: JSON.stringify({
+            messageId,
+            coachId,
+            recurring: true,
+          }),
+        });
+
+        qstashId = result.scheduleId;
+        console.log(`Created QStash schedule with ID: ${qstashId}`);
+      }
     }
 
     return NextResponse.json({
