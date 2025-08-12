@@ -3,17 +3,22 @@
 import MemberListSection from "@/components/sections/MemberListSection/MemberListSection";
 import MessageSection from "@/components/sections/MessageSection/MessageSection";
 import ChatSection from "@/components/sections/ChatSection/ChatSection";
+import MessageSchedulerSection from "@/components/sections/MessageSchedulerSection";
 import { ChatProvider } from "@/lib/chatContext";
 import { useAuth } from "@/lib/useAuth";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MessageSquare, Calendar } from "lucide-react";
 
 const supabase = createClient();
 
 export default function InboxPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState("chat");
 
   if (loading) {
     return (
@@ -46,7 +51,28 @@ export default function InboxPage() {
           <MemberListSection />
         </aside>
         <section className="flex-1 flex flex-col min-h-0">
-          <MessageSection />
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            <div className="border-b px-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="chat" className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Chat
+                </TabsTrigger>
+                <TabsTrigger value="scheduler" className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Message Scheduler
+                </TabsTrigger>
+              </TabsList>
+            </div>
+            
+            <TabsContent value="chat" className="flex-1 flex flex-col min-h-0">
+              <MessageSection />
+            </TabsContent>
+            
+            <TabsContent value="scheduler" className="flex-1 flex flex-col min-h-0">
+              <MessageSchedulerSection />
+            </TabsContent>
+          </Tabs>
         </section>
         <aside className="w-[22%] flex-shrink-0 border-l border-gray-200">
           <ChatSection />

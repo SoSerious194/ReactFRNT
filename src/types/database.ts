@@ -1154,6 +1154,84 @@ export type Database = {
         }
         Relationships: []
       }
+      message_deliveries: {
+        Row: {
+          error_message: string | null
+          id: string
+          scheduled_message_id: string
+          sent_at: string | null
+          status: string | null
+          stream_message_id: string | null
+          user_id: string
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          scheduled_message_id: string
+          sent_at?: string | null
+          status?: string | null
+          stream_message_id?: string | null
+          user_id: string
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          scheduled_message_id?: string
+          sent_at?: string | null
+          status?: string | null
+          stream_message_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_deliveries_scheduled_message_id_fkey"
+            columns: ["scheduled_message_id"]
+            isOneToOne: false
+            referencedRelation: "active_scheduled_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_deliveries_scheduled_message_id_fkey"
+            columns: ["scheduled_message_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_templates: {
+        Row: {
+          category: string
+          coach_id: string
+          content: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          coach_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          coach_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
@@ -1630,6 +1708,80 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_messages: {
+        Row: {
+          coach_id: string
+          content: string
+          created_at: string | null
+          end_date: string | null
+          frequency_config: Json | null
+          id: string
+          is_active: boolean | null
+          last_sent_at: string | null
+          next_send_at: string | null
+          schedule_type: string
+          start_date: string
+          start_time: string
+          status: string | null
+          target_type: string
+          target_user_ids: string[] | null
+          template_id: string | null
+          timezone: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          coach_id: string
+          content: string
+          created_at?: string | null
+          end_date?: string | null
+          frequency_config?: Json | null
+          id?: string
+          is_active?: boolean | null
+          last_sent_at?: string | null
+          next_send_at?: string | null
+          schedule_type: string
+          start_date: string
+          start_time?: string
+          status?: string | null
+          target_type: string
+          target_user_ids?: string[] | null
+          template_id?: string | null
+          timezone?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          coach_id?: string
+          content?: string
+          created_at?: string | null
+          end_date?: string | null
+          frequency_config?: Json | null
+          id?: string
+          is_active?: boolean | null
+          last_sent_at?: string | null
+          next_send_at?: string | null
+          schedule_type?: string
+          start_date?: string
+          start_time?: string
+          status?: string | null
+          target_type?: string
+          target_user_ids?: string[] | null
+          template_id?: string | null
+          timezone?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -2032,6 +2184,83 @@ export type Database = {
       }
     }
     Views: {
+      active_scheduled_messages: {
+        Row: {
+          calculated_next_send: string | null
+          coach_id: string | null
+          content: string | null
+          created_at: string | null
+          end_date: string | null
+          frequency_config: Json | null
+          id: string | null
+          is_active: boolean | null
+          last_sent_at: string | null
+          next_send_at: string | null
+          schedule_type: string | null
+          start_date: string | null
+          start_time: string | null
+          status: string | null
+          target_type: string | null
+          target_user_ids: string[] | null
+          template_id: string | null
+          timezone: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          calculated_next_send?: never
+          coach_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          frequency_config?: Json | null
+          id?: string | null
+          is_active?: boolean | null
+          last_sent_at?: string | null
+          next_send_at?: string | null
+          schedule_type?: string | null
+          start_date?: string | null
+          start_time?: string | null
+          status?: string | null
+          target_type?: string | null
+          target_user_ids?: string[] | null
+          template_id?: string | null
+          timezone?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          calculated_next_send?: never
+          coach_id?: string | null
+          content?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          frequency_config?: Json | null
+          id?: string | null
+          is_active?: boolean | null
+          last_sent_at?: string | null
+          next_send_at?: string | null
+          schedule_type?: string | null
+          start_date?: string | null
+          start_time?: string | null
+          status?: string | null
+          target_type?: string | null
+          target_user_ids?: string[] | null
+          template_id?: string | null
+          timezone?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       full_program_structure: {
         Row: {
           block_name: string | null
@@ -2105,6 +2334,14 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_next_send_time: {
+        Args: {
+          schedule_type: string
+          frequency_config: Json
+          input_time: string
+        }
+        Returns: string
+      }
       clear_day: {
         Args: { day: string; client_id: string }
         Returns: undefined
