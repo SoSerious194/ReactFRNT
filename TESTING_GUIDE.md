@@ -171,6 +171,14 @@ curl -X POST https://your-app.vercel.app/api/qstash-schedule \
 
 **Solution:** ✅ **FIXED** - Removed duplicate prefix from channel ID construction.
 
+#### **Issue: "Can't find channel with id messaging:..."**
+**Cause:** Channel was not properly initialized before sending messages.
+
+**Solution:** ✅ **FIXED** - Updated to follow the same pattern as working client-side chat:
+1. **Create users first** using `upsertUser()`
+2. **Use hash-based channel ID** matching client-side implementation
+3. **Call `channel.watch()`** to initialize channel before sending messages
+
 #### **Issue: Messages not being scheduled**
 **Check:**
 - QStash token is correct

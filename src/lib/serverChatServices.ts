@@ -27,17 +27,33 @@ export class ServerChatServices {
         return null;
       }
 
-      // Create a channel ID for the coach-client conversation
-      // Remove any special characters and use a safe format
-      const safeCoachId = coachId.replace(/[^a-zA-Z0-9]/g, '');
-      const safeClientId = clientId.replace(/[^a-zA-Z0-9]/g, '');
-      const channelId = `${safeCoachId}_${safeClientId}`;
-      
+      // First, ensure both users exist in GetStream
+      await serverStreamClient.upsertUser({
+        id: coachId,
+        name: "Coach",
+      });
+
+      await serverStreamClient.upsertUser({
+        id: clientId,
+        name: "Client",
+      });
+
+      // Create a channel ID using the same hash-based approach as the client-side
+      const combinedIds = [coachId, clientId].sort().join("-");
+      const hash = combinedIds.split("").reduce((a, b) => {
+        a = (a << 5) - a + b.charCodeAt(0);
+        return a & a;
+      }, 0);
+      const channelId = `chat_${Math.abs(hash).toString(36)}`;
+
       // Get or create the channel
       const channel = serverStreamClient.channel("messaging", channelId, {
         members: [coachId, clientId],
         created_by_id: coachId,
       });
+
+      // Initialize the channel (this is crucial!)
+      await channel.watch();
 
       // Send the message as the coach
       const response = await channel.sendMessage({
@@ -102,20 +118,22 @@ export class ServerChatServices {
         return null;
       }
 
-            // Create a unique channel ID
-      // Remove any special characters and use a safe format
-      const safeCoachId = coachId.replace(/[^a-zA-Z0-9]/g, '');
-      const safeClientId = clientId.replace(/[^a-zA-Z0-9]/g, '');
-      const channelId = `${safeCoachId}_${safeClientId}`;
-      
+      // Create a channel ID using the same hash-based approach as the client-side
+      const combinedIds = [coachId, clientId].sort().join("-");
+      const hash = combinedIds.split("").reduce((a, b) => {
+        a = (a << 5) - a + b.charCodeAt(0);
+        return a & a;
+      }, 0);
+      const channelId = `chat_${Math.abs(hash).toString(36)}`;
+
       // Get or create the channel
       const channel = serverStreamClient.channel("messaging", channelId, {
         members: [coachId, clientId],
         created_by_id: coachId,
       });
 
-      // Create the channel if it doesn't exist
-      await channel.create();
+      // Initialize the channel (this is crucial!)
+      await channel.watch();
 
       return channel;
     } catch (error) {
