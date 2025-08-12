@@ -183,7 +183,15 @@ export class MessageSchedulerServices {
 
     // Create a date with the specified start date and local time
     const [year, month, day] = request.start_date.split("-").map(Number);
-    const localDate = new Date(year, month - 1, day, localHours, localMinutes, 0, 0);
+    const localDate = new Date(
+      year,
+      month - 1,
+      day,
+      localHours,
+      localMinutes,
+      0,
+      0
+    );
 
     // Get the timezone offset for this specific date (important for DST)
     const localOffset = localDate.getTimezoneOffset(); // minutes
@@ -199,6 +207,9 @@ export class MessageSchedulerServices {
     );
 
     switch (request.schedule_type) {
+      case "5min":
+        // Every 5 minutes
+        return "*/5 * * * *";
       case "daily":
         return `${utcMinutes} ${utcHours} * * *`;
       case "weekly":

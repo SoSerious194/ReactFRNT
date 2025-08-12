@@ -85,11 +85,10 @@ export default function MessageSchedulerSection() {
     title: "",
     content: "",
     template_id: "",
-    schedule_type: "once" as "once" | "daily" | "weekly" | "monthly",
+    schedule_type: "once" as "once" | "5min" | "daily" | "weekly" | "monthly",
     start_date: format(new Date(), "yyyy-MM-dd"),
     end_date: "",
     start_time: "09:00",
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Use local timezone
     target_type: "all" as "all" | "specific",
     target_user_ids: [] as string[],
     frequency_config: {} as any,
@@ -118,6 +117,22 @@ export default function MessageSchedulerSection() {
     useState<MessageTemplate | null>(null);
   const [editingScheduled, setEditingScheduled] =
     useState<ScheduledMessage | null>(null);
+
+  // Template creation state
+  const [templateCreationMode, setTemplateCreationMode] = useState<
+    "manual" | "ai"
+  >("manual");
+  const [templateForm, setTemplateForm] = useState({
+    title: "",
+    content: "",
+    category: "general" as
+      | "sales"
+      | "check-in"
+      | "motivation"
+      | "reminder"
+      | "general",
+  });
+  const [isGeneratingTemplate, setIsGeneratingTemplate] = useState(false);
 
   // Load data on mount
   useEffect(() => {
@@ -168,25 +183,66 @@ export default function MessageSchedulerSection() {
   };
 
   const handleCreateTemplate = async () => {
-    if (!user || !schedulerForm.title || !schedulerForm.content) return;
+    if (!user) return;
 
-    try {
-      const request: CreateMessageTemplateRequest = {
-        title: schedulerForm.title,
-        content: schedulerForm.content,
-        category: "general",
-      };
+    if (templateCreationMode === "ai") {
+      if (!templateForm.category) return;
 
-      await MessageSchedulerServices.createTemplate(user.id, request);
-      setSchedulerForm({
-        ...schedulerForm,
-        title: "",
-        content: "",
-        template_id: "",
-      });
-      loadTemplates();
-    } catch (error) {
-      console.error("Failed to create template:", error);
+      setIsGeneratingTemplate(true);
+      try {
+        const request: TemplateGenerationRequest = {
+          category: templateForm.category,
+          context: "",
+          tone: "friendly",
+          target_audience: "",
+          specific_goals: [],
+        };
+
+        const result = await MessageSchedulerServices.generateTemplate(request);
+
+        // Create template with generated content
+        const templateRequest: CreateMessageTemplateRequest = {
+          title: result.title,
+          content: result.content,
+          category: templateForm.category,
+        };
+
+        await MessageSchedulerServices.createTemplate(user.id, templateRequest);
+
+        // Reset form and close dialog
+        setTemplateForm({
+          title: "",
+          content: "",
+          category: "general",
+        });
+        setTemplateCreationMode("manual");
+        setShowTemplateDialog(false);
+        loadTemplates();
+      } catch (error) {
+        console.error("Failed to generate and create template:", error);
+      } finally {
+        setIsGeneratingTemplate(false);
+      }
+    } else {
+      if (!templateForm.title || !templateForm.content) return;
+
+      try {
+        const request: CreateMessageTemplateRequest = {
+          title: templateForm.title,
+          content: templateForm.content,
+          category: templateForm.category,
+        };
+
+        await MessageSchedulerServices.createTemplate(user.id, request);
+        setTemplateForm({
+          title: "",
+          content: "",
+          category: "general",
+        });
+        loadTemplates();
+      } catch (error) {
+        console.error("Failed to create template:", error);
+      }
     }
   };
 
@@ -202,7 +258,7 @@ export default function MessageSchedulerSection() {
         start_date: schedulerForm.start_date,
         end_date: schedulerForm.end_date || undefined,
         start_time: schedulerForm.start_time,
-        timezone: schedulerForm.timezone,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         frequency_config:
           Object.keys(schedulerForm.frequency_config).length > 0
             ? schedulerForm.frequency_config
@@ -222,7 +278,6 @@ export default function MessageSchedulerSection() {
         start_date: format(new Date(), "yyyy-MM-dd"),
         end_date: "",
         start_time: "09:00",
-        timezone: "UTC",
         target_type: "all",
         target_user_ids: [],
         frequency_config: {},
@@ -344,6 +399,8 @@ export default function MessageSchedulerSection() {
     switch (type) {
       case "once":
         return "One-time";
+      case "5min":
+        return "Every 5 Minutes";
       case "daily":
         return "Daily";
       case "weekly":
@@ -355,19 +412,11 @@ export default function MessageSchedulerSection() {
     }
   };
 
-  const getLocalTimeDisplay = (
-    date: string,
-    time: string,
-    timezone: string
-  ) => {
+  const getLocalTimeDisplay = (date: string, time: string) => {
     try {
       const dateTimeString = `${date}T${time}`;
-      const utcDate = new Date(dateTimeString + "Z"); // Treat as UTC
-
-      // Convert to the specified timezone
-      const localDate = new Date(
-        utcDate.toLocaleString("en-US", { timeZone: timezone })
-      );
+      const localDate = new Date(dateTimeString);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
       return localDate.toLocaleString("en-US", {
         weekday: "short",
@@ -378,7 +427,7 @@ export default function MessageSchedulerSection() {
         timeZoneName: "short",
       });
     } catch (error) {
-      return `${date} at ${time} (${timezone})`;
+      return `${date} at ${time}`;
     }
   };
 
@@ -515,7 +564,7 @@ export default function MessageSchedulerSection() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Start Time</label>
                   <Input
@@ -528,41 +577,6 @@ export default function MessageSchedulerSection() {
                       })
                     }
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Timezone</label>
-                  <Select
-                    value={schedulerForm.timezone}
-                    onValueChange={(value) =>
-                      setSchedulerForm({
-                        ...schedulerForm,
-                        timezone: value,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="America/New_York">
-                        Eastern Time
-                      </SelectItem>
-                      <SelectItem value="America/Chicago">
-                        Central Time
-                      </SelectItem>
-                      <SelectItem value="America/Denver">
-                        Mountain Time
-                      </SelectItem>
-                      <SelectItem value="America/Los_Angeles">
-                        Pacific Time
-                      </SelectItem>
-                      <SelectItem value="Europe/London">London</SelectItem>
-                      <SelectItem value="Europe/Paris">Paris</SelectItem>
-                      <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
-                      <SelectItem value="UTC">UTC</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -586,11 +600,12 @@ export default function MessageSchedulerSection() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-800">
                   <strong>Message will be sent:</strong>{" "}
-                  {getLocalTimeDisplay(
-                    schedulerForm.start_date,
-                    schedulerForm.start_time,
-                    schedulerForm.timezone
-                  )}
+                  {schedulerForm.schedule_type === "5min"
+                    ? "Every 5 minutes starting immediately"
+                    : getLocalTimeDisplay(
+                        schedulerForm.start_date,
+                        schedulerForm.start_time
+                      )}
                 </p>
               </div>
 
@@ -1019,65 +1034,167 @@ export default function MessageSchedulerSection() {
       </Dialog>
 
       {/* Template Creation Dialog */}
-      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+      <Dialog
+        open={showTemplateDialog}
+        onOpenChange={(open) => {
+          setShowTemplateDialog(open);
+          if (!open) {
+            // Reset form when dialog closes
+            setTemplateForm({
+              title: "",
+              content: "",
+              category: "general",
+            });
+            setTemplateCreationMode("manual");
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Template</DialogTitle>
             <DialogDescription>
-              Create a reusable message template
+              Create a reusable message template manually or with AI
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Template Title</label>
-              <Input
-                placeholder="Enter template title"
-                value={schedulerForm.title}
-                onChange={(e) =>
-                  setSchedulerForm({ ...schedulerForm, title: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Template Content</label>
-              <Textarea
-                placeholder="Enter template content..."
-                value={schedulerForm.content}
-                onChange={(e) =>
-                  setSchedulerForm({
-                    ...schedulerForm,
-                    content: e.target.value,
-                  })
-                }
-                rows={4}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category</label>
-              <Select
-                value={schedulerForm.template_id}
-                onValueChange={(value: any) =>
-                  setSchedulerForm({ ...schedulerForm, template_id: value })
-                }
+            {/* Creation Mode Toggle */}
+            <div className="flex space-x-2 p-1 bg-gray-100 rounded-lg">
+              <button
+                onClick={() => setTemplateCreationMode("manual")}
+                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                  templateCreationMode === "manual"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MESSAGE_CATEGORIES.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                Manual
+              </button>
+              <button
+                onClick={() => setTemplateCreationMode("ai")}
+                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                  templateCreationMode === "ai"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <Sparkles className="w-4 h-4 mr-1 inline" />
+                AI Generate
+              </button>
             </div>
 
-            <Button onClick={handleCreateTemplate} className="w-full">
-              Create Template
+            {templateCreationMode === "manual" ? (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Template Title</label>
+                  <Input
+                    placeholder="Enter template title"
+                    value={templateForm.title}
+                    onChange={(e) =>
+                      setTemplateForm({
+                        ...templateForm,
+                        title: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Template Content
+                  </label>
+                  <Textarea
+                    placeholder="Enter template content..."
+                    value={templateForm.content}
+                    onChange={(e) =>
+                      setTemplateForm({
+                        ...templateForm,
+                        content: e.target.value,
+                      })
+                    }
+                    rows={4}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Category</label>
+                  <Select
+                    value={templateForm.category}
+                    onValueChange={(value: any) =>
+                      setTemplateForm({ ...templateForm, category: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MESSAGE_CATEGORIES.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <Sparkles className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-blue-900">
+                        AI Template Generation
+                      </h4>
+                      <p className="text-sm text-blue-700 mt-1">
+                        Select a category and AI will generate a professional
+                        template for you.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Category</label>
+                  <Select
+                    value={templateForm.category}
+                    onValueChange={(value: any) =>
+                      setTemplateForm({ ...templateForm, category: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MESSAGE_CATEGORIES.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={handleCreateTemplate}
+              className="w-full"
+              disabled={isGeneratingTemplate}
+            >
+              {isGeneratingTemplate ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Generating...
+                </>
+              ) : templateCreationMode === "ai" ? (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate & Create Template
+                </>
+              ) : (
+                "Create Template"
+              )}
             </Button>
           </div>
         </DialogContent>
