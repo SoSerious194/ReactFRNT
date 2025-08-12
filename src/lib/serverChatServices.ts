@@ -28,8 +28,11 @@ export class ServerChatServices {
       }
 
       // Create a channel ID for the coach-client conversation
-      const channelId = `messaging:${coachId}-${clientId}`;
-
+      // Remove any special characters and use a safe format
+      const safeCoachId = coachId.replace(/[^a-zA-Z0-9]/g, '');
+      const safeClientId = clientId.replace(/[^a-zA-Z0-9]/g, '');
+      const channelId = `messaging_${safeCoachId}_${safeClientId}`;
+      
       // Get or create the channel
       const channel = serverStreamClient.channel("messaging", channelId, {
         members: [coachId, clientId],
@@ -99,9 +102,12 @@ export class ServerChatServices {
         return null;
       }
 
-      // Create a unique channel ID
-      const channelId = `messaging:${coachId}-${clientId}`;
-
+            // Create a unique channel ID
+      // Remove any special characters and use a safe format
+      const safeCoachId = coachId.replace(/[^a-zA-Z0-9]/g, '');
+      const safeClientId = clientId.replace(/[^a-zA-Z0-9]/g, '');
+      const channelId = `messaging_${safeCoachId}_${safeClientId}`;
+      
       // Get or create the channel
       const channel = serverStreamClient.channel("messaging", channelId, {
         members: [coachId, clientId],

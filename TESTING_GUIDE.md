@@ -161,6 +161,11 @@ curl -X POST https://your-app.vercel.app/api/qstash-schedule \
   }'
 ```
 
+#### **Issue: "Invalid channel id, can't contain the : character"**
+**Cause:** GetStream channel IDs cannot contain special characters like colons.
+
+**Solution:** ✅ **FIXED** - Channel IDs are now sanitized to remove special characters and use safe format.
+
 #### **Issue: Messages not being scheduled**
 **Check:**
 - QStash token is correct
