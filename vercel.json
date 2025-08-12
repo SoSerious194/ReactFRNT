@@ -1,7 +1,0 @@
-{
-  "webpack": {
-    "externals": {
-      "canvas": "canvas"
-    }
-  }
-}
