@@ -1,6 +1,5 @@
 import { createClient } from "@/utils/supabase/client";
 import { ChatServices } from "./chatServices";
-import { QStashService } from "./qstashService";
 import {
   MessageTemplate,
   ScheduledMessage,
@@ -123,37 +122,43 @@ export class MessageSchedulerServices {
     if (error)
       throw new Error(`Failed to create scheduled message: ${error.message}`);
 
-    // Schedule the message with QStash
+    // Schedule the message with QStash via API
     try {
-      const scheduledDateTime = new Date(`${request.start_date}T${request.start_time}`);
-      
-      if (request.schedule_type === "once") {
-        // One-time message
-        const qstashId = await QStashService.scheduleMessage(
-          data.id,
-          scheduledDateTime,
-          coachId
-        );
-        
+      const scheduledDateTime = new Date(
+        `${request.start_date}T${request.start_time}`
+      );
+      const cronExpression =
+        request.schedule_type !== "once"
+          ? this.createCronExpression(request)
+          : null;
+
+      const response = await fetch("/api/qstash-schedule", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messageId: data.id,
+          scheduledTime: scheduledDateTime.toISOString(),
+          coachId,
+          scheduleType: request.schedule_type,
+          cronExpression,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
         // Update the message with QStash ID
         await supabase
           .from("scheduled_messages")
-          .update({ qstash_id: qstashId })
+          .update({ qstash_id: result.qstashId })
           .eq("id", data.id);
       } else {
-        // Recurring message - create cron expression
-        const cronExpression = this.createCronExpression(request);
-        const qstashId = await QStashService.scheduleRecurringMessage(
-          data.id,
-          cronExpression,
-          coachId
+        console.error(
+          "Failed to schedule with QStash API:",
+          await response.text()
         );
-        
-        // Update the message with QStash ID
-        await supabase
-          .from("scheduled_messages")
-          .update({ qstash_id: qstashId })
-          .eq("id", data.id);
       }
     } catch (qstashError) {
       console.error("Failed to schedule with QStash:", qstashError);
@@ -163,9 +168,11 @@ export class MessageSchedulerServices {
     return data;
   }
 
-  private static createCronExpression(request: CreateScheduledMessageRequest): string {
-    const [hours, minutes] = request.start_time.split(':').map(Number);
-    
+  private static createCronExpression(
+    request: CreateScheduledMessageRequest
+  ): string {
+    const [hours, minutes] = request.start_time.split(":").map(Number);
+
     switch (request.schedule_type) {
       case "daily":
         return `${minutes} ${hours} * * *`;
