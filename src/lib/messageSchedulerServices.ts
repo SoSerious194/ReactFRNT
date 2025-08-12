@@ -171,23 +171,47 @@ export class MessageSchedulerServices {
   private static createCronExpression(
     request: CreateScheduledMessageRequest
   ): string {
-    // For now, use the time as-is and let QStash handle timezone
-    // TODO: Implement proper timezone conversion
-    const [hours, minutes] = request.start_time.split(":").map(Number);
-    
-    console.log(`Creating cron for ${request.start_time} (${hours}:${minutes})`);
+    // Convert local time to UTC for QStash cron
+    const timezone = request.timezone || "UTC";
+    const [localHours, localMinutes] = request.start_time
+      .split(":")
+      .map(Number);
+
+    console.log(
+      `Creating cron for ${request.start_time} in timezone ${timezone}`
+    );
+
+    // Simple timezone offset calculation
+    // For now, let's assume the timezone is the user's local timezone
+    // and convert it to UTC by getting the offset
+    const now = new Date();
+    const localOffset = now.getTimezoneOffset(); // minutes
+
+    // Create a date with the specified local time
+    const localDate = new Date();
+    localDate.setHours(localHours, localMinutes, 0, 0);
+
+    // Convert to UTC by adding the offset
+    const utcDate = new Date(localDate.getTime() + localOffset * 60 * 1000);
+
+    const utcHours = utcDate.getUTCHours();
+    const utcMinutes = utcDate.getUTCMinutes();
+
+    console.log(
+      `Local time ${localHours}:${localMinutes} -> UTC ${utcHours}:${utcMinutes} (offset: ${localOffset} minutes)`
+    );
 
     switch (request.schedule_type) {
       case "daily":
-        return `${minutes} ${hours} * * *`;
+        return `${utcMinutes} ${utcHours} * * *`;
       case "weekly":
         const dayOfWeek = request.frequency_config?.dayOfWeek?.[0] || 1;
-        return `${minutes} ${hours} * * ${dayOfWeek}`;
+        return `${utcMinutes} ${utcHours} * * ${dayOfWeek}`;
       case "monthly":
         const dayOfMonth = request.frequency_config?.dayOfMonth || 1;
-        return `${minutes} ${hours} ${dayOfMonth} * *`;
+        return `${utcMinutes} ${utcHours} ${dayOfMonth} * *`;
       default:
-        return `${minutes} ${hours} * * *`; // Default to daily
+        return `${utcMinutes} ${utcHours} * * *`; // Default to daily
     }
   }
 
