@@ -2,17 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { StreamChat } from "stream-chat";
 import { createClient } from "@supabase/supabase-js";
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-// Initialize GetStream client
-const streamClient = StreamChat.getInstance(
-  process.env.NEXT_PUBLIC_STREAM_KEY!,
-  process.env.STREAM_SECRET!
-);
-
 // Hash function for creating channel IDs (same as your app)
 function hashCode(str: string): number {
   let hash = 0;
@@ -34,6 +23,20 @@ export async function POST(request: NextRequest) {
       console.log("Unauthorized request to send-scheduled-message");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Initialize clients inside the function
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const streamKey = process.env.NEXT_PUBLIC_STREAM_KEY;
+    const streamSecret = process.env.STREAM_SECRET;
+
+    if (!supabaseUrl || !supabaseServiceKey || !streamKey || !streamSecret) {
+      console.error("Missing environment variables");
+      return NextResponse.json({ error: "Missing environment variables" }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const streamClient = StreamChat.getInstance(streamKey, streamSecret);
 
     const { messageId, userId } = await request.json();
 
@@ -84,7 +87,6 @@ export async function POST(request: NextRequest) {
 
     // Get or create channel
     const channel = streamClient.channel("messaging", channelId, {
-      name: `Chat with ${coach.full_name}`,
       members: [coach.id, user.id],
     });
 
