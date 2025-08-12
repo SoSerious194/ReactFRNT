@@ -63,22 +63,43 @@ export async function POST(request: NextRequest) {
       console.log("Found message to process:", message);
 
       // Check if message should be processed based on start date
-      const startDateTime = new Date(
-        `${message.start_date}T${message.start_time}`
+      // Convert local time to UTC for comparison
+      const timezone = message.timezone || "UTC";
+      const [localHours, localMinutes] = message.start_time
+        .split(":")
+        .map(Number);
+      const [year, month, day] = message.start_date.split("-").map(Number);
+
+      // Create local date
+      const localDate = new Date(
+        year,
+        month - 1,
+        day,
+        localHours,
+        localMinutes,
+        0,
+        0
+      );
+      const localOffset = localDate.getTimezoneOffset();
+      const startDateTimeUTC = new Date(
+        localDate.getTime() + localOffset * 60 * 1000
       );
       const now = new Date();
 
       console.log(
-        `Message start date: ${startDateTime.toISOString()}, Current time: ${now.toISOString()}`
+        `Message start date (local): ${message.start_date}T${message.start_time} ${timezone}`,
+        `Message start date (UTC): ${startDateTimeUTC.toISOString()}`,
+        `Current time (UTC): ${now.toISOString()}`
       );
 
-      if (startDateTime > now) {
+      if (startDateTimeUTC > now) {
         console.log(
           `Message ${messageId} is scheduled for future, skipping processing`
         );
         return NextResponse.json({
           message: "Message scheduled for future",
-          startDate: startDateTime.toISOString(),
+          startDateLocal: `${message.start_date}T${message.start_time}`,
+          startDateUTC: startDateTimeUTC.toISOString(),
           currentTime: now.toISOString(),
         });
       }
