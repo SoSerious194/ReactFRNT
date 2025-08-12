@@ -249,15 +249,27 @@ export default function MessageSchedulerSection() {
   const handleScheduleMessage = async () => {
     if (!user || !schedulerForm.title || !schedulerForm.content) return;
 
+    // For 5-minute schedules, we don't need start date/time validation
+    if (schedulerForm.schedule_type !== "5min") {
+      if (!schedulerForm.start_date || !schedulerForm.start_time) {
+        console.error("Start date and time are required for non-5min schedules");
+        return;
+      }
+    }
+
     try {
       const request: CreateScheduledMessageRequest = {
         title: schedulerForm.title,
         content: schedulerForm.content,
         template_id: schedulerForm.template_id || undefined,
         schedule_type: schedulerForm.schedule_type,
-        start_date: schedulerForm.start_date,
+        start_date: schedulerForm.schedule_type === "5min" 
+          ? format(new Date(), "yyyy-MM-dd") 
+          : schedulerForm.start_date,
         end_date: schedulerForm.end_date || undefined,
-        start_time: schedulerForm.start_time,
+        start_time: schedulerForm.schedule_type === "5min" 
+          ? format(new Date(), "HH:mm:ss") 
+          : schedulerForm.start_time,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         frequency_config:
           Object.keys(schedulerForm.frequency_config).length > 0
@@ -549,52 +561,56 @@ export default function MessageSchedulerSection() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Start Date</label>
-                  <Input
-                    type="date"
-                    value={schedulerForm.start_date}
-                    onChange={(e) =>
-                      setSchedulerForm({
-                        ...schedulerForm,
-                        start_date: e.target.value,
-                      })
-                    }
-                  />
-                </div>
+                {schedulerForm.schedule_type !== "5min" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Start Date</label>
+                    <Input
+                      type="date"
+                      value={schedulerForm.start_date}
+                      onChange={(e) =>
+                        setSchedulerForm({
+                          ...schedulerForm,
+                          start_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Start Time</label>
-                  <Input
-                    type="time"
-                    value={schedulerForm.start_time}
-                    onChange={(e) =>
-                      setSchedulerForm({
-                        ...schedulerForm,
-                        start_time: e.target.value,
-                      })
-                    }
-                  />
-                </div>
+              {schedulerForm.schedule_type !== "5min" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Start Time</label>
+                    <Input
+                      type="time"
+                      value={schedulerForm.start_time}
+                      onChange={(e) =>
+                        setSchedulerForm({
+                          ...schedulerForm,
+                          start_time: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    End Date (Optional)
-                  </label>
-                  <Input
-                    type="date"
-                    value={schedulerForm.end_date}
-                    onChange={(e) =>
-                      setSchedulerForm({
-                        ...schedulerForm,
-                        end_date: e.target.value,
-                      })
-                    }
-                  />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      End Date (Optional)
+                    </label>
+                    <Input
+                      type="date"
+                      value={schedulerForm.end_date}
+                      onChange={(e) =>
+                        setSchedulerForm({
+                          ...schedulerForm,
+                          end_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Time Preview */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

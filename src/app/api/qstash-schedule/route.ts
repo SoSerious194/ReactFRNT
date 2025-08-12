@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         qstashId = result.scheduleId;
         console.log(`Created 5-minute QStash schedule with ID: ${qstashId}`);
         
-        // Send first message immediately
+        // Send first message immediately - no delays, no timezone issues
         try {
           const firstMessageResult = await qstash.publishJSON({
             url: `${process.env.NEXT_PUBLIC_APP_URL}/api/process-scheduled-messages`,

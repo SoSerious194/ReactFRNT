@@ -1,0 +1,18 @@
+name: Trigger Supabase Edge Function
+
+on:
+  schedule:
+    # Run every 3 minutes
+    - cron: '*/3 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  trigger-edge-function:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Edge Function
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.SCHEDULER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            "https://skgzwffygckgqquatqpr.supabase.co/functions/v1/process-recurring-messages"

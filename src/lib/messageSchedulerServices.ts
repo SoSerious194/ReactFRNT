@@ -122,47 +122,48 @@ export class MessageSchedulerServices {
     if (error)
       throw new Error(`Failed to create scheduled message: ${error.message}`);
 
-    // Schedule the message with QStash via API
-    try {
-      const scheduledDateTime = new Date(
-        `${request.start_date}T${request.start_time}`
-      );
-      const cronExpression =
-        request.schedule_type !== "once"
-          ? this.createCronExpression(request)
-          : null;
-
-      const response = await fetch("/api/qstash-schedule", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messageId: data.id,
-          scheduledTime: scheduledDateTime.toISOString(),
-          coachId,
-          scheduleType: request.schedule_type,
-          cronExpression,
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-
-        // Update the message with QStash ID
-        await supabase
-          .from("scheduled_messages")
-          .update({ qstash_id: result.qstashId })
-          .eq("id", data.id);
-      } else {
-        console.error(
-          "Failed to schedule with QStash API:",
-          await response.text()
+    // Handle scheduling based on type
+    if (request.schedule_type === "once") {
+      // For one-time messages, use QStash with delay
+      try {
+        const scheduledDateTime = new Date(
+          `${request.start_date}T${request.start_time}`
         );
+
+        const response = await fetch("/api/qstash-schedule", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messageId: data.id,
+            scheduledTime: scheduledDateTime.toISOString(),
+            coachId,
+            scheduleType: request.schedule_type,
+            cronExpression: null,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          // Update the message with QStash ID
+          await supabase
+            .from("scheduled_messages")
+            .update({ qstash_id: result.qstashId })
+            .eq("id", data.id);
+        } else {
+          console.error(
+            "Failed to schedule one-time message with QStash API:",
+            await response.text()
+          );
+        }
+      } catch (qstashError) {
+        console.error("Failed to schedule one-time message with QStash:", qstashError);
       }
-    } catch (qstashError) {
-      console.error("Failed to schedule with QStash:", qstashError);
-      // Continue without QStash - will use manual processing
+    } else {
+      // For recurring messages, just store in database
+      // The cron job will handle the scheduling
+      console.log(`Recurring message ${data.id} stored in database. Cron job will handle scheduling.`);
     }
 
     return data;

@@ -2,6 +2,48 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { MessageSchedulerServices } from "@/lib/messageSchedulerServices";
 
+// Helper function to determine if a message should be sent based on its schedule
+function shouldSendMessage(message: any, now: Date): boolean {
+  const lastSentAt = message.last_sent_at ? new Date(message.last_sent_at) : null;
+  
+  switch (message.schedule_type) {
+    case "5min":
+      // For 5-minute schedules, send if:
+      // 1. Never sent before, OR
+      // 2. Last sent more than 5 minutes ago
+      if (!lastSentAt) return true;
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      return lastSentAt <= fiveMinutesAgo;
+      
+    case "daily":
+      // For daily schedules, send if:
+      // 1. Never sent before, OR
+      // 2. Last sent more than 24 hours ago
+      if (!lastSentAt) return true;
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      return lastSentAt <= oneDayAgo;
+      
+    case "weekly":
+      // For weekly schedules, send if:
+      // 1. Never sent before, OR
+      // 2. Last sent more than 7 days ago
+      if (!lastSentAt) return true;
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return lastSentAt <= oneWeekAgo;
+      
+    case "monthly":
+      // For monthly schedules, send if:
+      // 1. Never sent before, OR
+      // 2. Last sent more than 30 days ago
+      if (!lastSentAt) return true;
+      const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return lastSentAt <= oneMonthAgo;
+      
+    default:
+      return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log("=== PROCESS SCHEDULED MESSAGES ENDPOINT CALLED ===");
@@ -62,56 +104,63 @@ export async function POST(request: NextRequest) {
 
       console.log("Found message to process:", message);
 
-      // Check if message should be processed based on start date
-      // Convert local time to UTC for comparison
-      const timezone = message.timezone || "UTC";
-      const [localHours, localMinutes] = message.start_time
-        .split(":")
-        .map(Number);
-      const [year, month, day] = message.start_date.split("-").map(Number);
+      // Special handling for 5-minute schedules - always process them
+      if (message.schedule_type === "5min") {
+        console.log(`Processing 5-minute schedule - bypassing start date check`);
+        messagesToProcess = [message];
+      } else {
+        // Check if message should be processed based on start date
+        // Convert local time to UTC for comparison
+        const timezone = message.timezone || "UTC";
+        const [localHours, localMinutes] = message.start_time
+          .split(":")
+          .map(Number);
+        const [year, month, day] = message.start_date.split("-").map(Number);
 
-      // Create local date
-      const localDate = new Date(
-        year,
-        month - 1,
-        day,
-        localHours,
-        localMinutes,
-        0,
-        0
-      );
-      const localOffset = localDate.getTimezoneOffset();
-      const startDateTimeUTC = new Date(
-        localDate.getTime() + localOffset * 60 * 1000
-      );
-      const now = new Date();
-
-      console.log(
-        `Message start date (local): ${message.start_date}T${message.start_time} ${timezone}`,
-        `Message start date (UTC): ${startDateTimeUTC.toISOString()}`,
-        `Current time (UTC): ${now.toISOString()}`
-      );
-
-      if (startDateTimeUTC > now) {
-        console.log(
-          `Message ${messageId} is scheduled for future, skipping processing`
+        // Create local date
+        const localDate = new Date(
+          year,
+          month - 1,
+          day,
+          localHours,
+          localMinutes,
+          0,
+          0
         );
-        return NextResponse.json({
-          message: "Message scheduled for future",
-          startDateLocal: `${message.start_date}T${message.start_time}`,
-          startDateUTC: startDateTimeUTC.toISOString(),
-          currentTime: now.toISOString(),
-        });
-      }
+        const localOffset = localDate.getTimezoneOffset();
+        const startDateTimeUTC = new Date(
+          localDate.getTime() + localOffset * 60 * 1000
+        );
+        const now = new Date();
 
-      messagesToProcess = [message];
+        console.log(
+          `Message start date (local): ${message.start_date}T${message.start_time} ${timezone}`,
+          `Message start date (UTC): ${startDateTimeUTC.toISOString()}`,
+          `Current time (UTC): ${now.toISOString()}`
+        );
+
+        if (startDateTimeUTC > now) {
+          console.log(
+            `Message ${messageId} is scheduled for future, skipping processing`
+          );
+          return NextResponse.json({
+            message: "Message scheduled for future",
+            startDateLocal: `${message.start_date}T${message.start_time}`,
+            startDateUTC: startDateTimeUTC.toISOString(),
+            currentTime: now.toISOString(),
+          });
+        }
+
+        messagesToProcess = [message];
+      }
     } else {
-      // Fallback: Process all messages (for manual testing)
+      // Process all active recurring messages
       const { data: allScheduledMessages, error } = await supabase
         .from("scheduled_messages")
         .select("*")
         .eq("status", "active")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .in("schedule_type", ["5min", "daily", "weekly", "monthly"]);
 
       if (error) {
         console.error("Error fetching scheduled messages:", error);
@@ -123,33 +172,20 @@ export async function POST(request: NextRequest) {
 
       if (!allScheduledMessages || allScheduledMessages.length === 0) {
         return NextResponse.json({
-          message: "No messages to process",
+          message: "No recurring messages to process",
           processed: 0,
         });
       }
 
-      // Filter messages that need to be sent
+      // Filter messages that need to be sent based on their schedule
       const now = new Date();
       messagesToProcess = allScheduledMessages.filter((message) => {
-        try {
-          const scheduledDateTime = new Date(
-            `${message.start_date}T${message.start_time}`
-          );
-          const scheduledInTimezone = new Date(
-            scheduledDateTime.toLocaleString("en-US", {
-              timeZone: message.timezone || "UTC",
-            })
-          );
-          return scheduledInTimezone <= now;
-        } catch (error) {
-          console.error("Error processing message time:", error);
-          return false;
-        }
+        return shouldSendMessage(message, now);
       });
 
       if (messagesToProcess.length === 0) {
         return NextResponse.json({
-          message: "No messages to process",
+          message: "No messages due for sending",
           processed: 0,
         });
       }
