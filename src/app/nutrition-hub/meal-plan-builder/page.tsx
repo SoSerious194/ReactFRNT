@@ -13,7 +13,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { UserService, User as DatabaseUser } from "@/lib/userServices";
+import { UserService } from "@/lib/userServices";
 import { RecipeService } from "@/lib/recipeServices";
 import { MealPlanService } from "@/lib/mealPlanServices";
 import {
@@ -22,7 +22,6 @@ import {
   MealSlotData,
   CreateMealPlanRequest,
   UpdateMealPlanRequest,
-  MealPlanComplete,
 } from "@/types/mealPlan";
 import UserAvatar from "@/components/ui/UserAvatar";
 
