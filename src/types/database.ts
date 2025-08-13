@@ -1719,6 +1719,7 @@ export type Database = {
           is_active: boolean | null
           last_sent_at: string | null
           next_send_at: string | null
+          qstash_id: string | null
           schedule_type: string
           start_date: string
           start_time: string
@@ -1740,6 +1741,7 @@ export type Database = {
           is_active?: boolean | null
           last_sent_at?: string | null
           next_send_at?: string | null
+          qstash_id?: string | null
           schedule_type: string
           start_date: string
           start_time?: string
@@ -1761,6 +1763,7 @@ export type Database = {
           is_active?: boolean | null
           last_sent_at?: string | null
           next_send_at?: string | null
+          qstash_id?: string | null
           schedule_type?: string
           start_date?: string
           start_time?: string

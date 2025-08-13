@@ -25,6 +25,26 @@ function shouldSendMessage(message: any, now: Date): boolean {
       const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       return lastSentAt <= oneWeekAgo;
 
+    case "2x_week":
+      // For 2x/week schedules, send if:
+      // 1. Never sent before, OR
+      // 2. Last sent more than 3.5 days ago (half a week)
+      if (!lastSentAt) return true;
+      const threeAndHalfDaysAgo = new Date(
+        now.getTime() - 3.5 * 24 * 60 * 60 * 1000
+      );
+      return lastSentAt <= threeAndHalfDaysAgo;
+
+    case "3x_week":
+      // For 3x/week schedules, send if:
+      // 1. Never sent before, OR
+      // 2. Last sent more than 2.33 days ago (2.33 days = 7/3 days)
+      if (!lastSentAt) return true;
+      const twoAndThirdDaysAgo = new Date(
+        now.getTime() - 2.33 * 24 * 60 * 60 * 1000
+      );
+      return lastSentAt <= twoAndThirdDaysAgo;
+
     case "monthly":
       // For monthly schedules, send if:
       // 1. Never sent before, OR
@@ -74,7 +94,13 @@ export async function POST(request: NextRequest) {
       .select("*")
       .eq("status", "active")
       .eq("is_active", true)
-      .in("schedule_type", ["daily", "weekly", "monthly"]);
+      .in("schedule_type", [
+        "daily",
+        "weekly",
+        "2x_week",
+        "3x_week",
+        "monthly",
+      ]);
 
     if (error) {
       console.error("Error fetching scheduled messages:", error);

@@ -88,7 +88,13 @@ export default function MessageSchedulerSection() {
     title: "",
     content: "",
     template_id: "",
-    schedule_type: "once" as "once" | "daily" | "weekly" | "monthly",
+    schedule_type: "once" as
+      | "once"
+      | "daily"
+      | "weekly"
+      | "2x_week"
+      | "3x_week"
+      | "monthly",
     start_date: format(new Date(), "yyyy-MM-dd"),
     end_date: "",
     start_time: "09:00",
@@ -520,11 +526,14 @@ export default function MessageSchedulerSection() {
     switch (type) {
       case "once":
         return "One-time";
-
       case "daily":
         return "Daily";
       case "weekly":
         return "Weekly";
+      case "2x_week":
+        return "2x per week";
+      case "3x_week":
+        return "3x per week";
       case "monthly":
         return "Monthly";
       default:
@@ -726,15 +735,36 @@ export default function MessageSchedulerSection() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-800">
                   <strong>Message will be sent:</strong>{" "}
-                  {getLocalTimeDisplay(
-                    schedulerForm.start_date,
-                    schedulerForm.start_time
-                  )}
+                  {schedulerForm.schedule_type === "once"
+                    ? getLocalTimeDisplay(
+                        schedulerForm.start_date,
+                        schedulerForm.start_time
+                      )
+                    : schedulerForm.schedule_type === "daily"
+                    ? `Daily at ${schedulerForm.start_time} starting ${schedulerForm.start_date}`
+                    : schedulerForm.schedule_type === "weekly"
+                    ? `Weekly on selected days at ${schedulerForm.start_time} starting ${schedulerForm.start_date}`
+                    : schedulerForm.schedule_type === "2x_week"
+                    ? `2x per week on selected days at ${schedulerForm.start_time} starting ${schedulerForm.start_date}`
+                    : schedulerForm.schedule_type === "3x_week"
+                    ? `3x per week on selected days at ${schedulerForm.start_time} starting ${schedulerForm.start_date}`
+                    : schedulerForm.schedule_type === "monthly"
+                    ? `Monthly on day ${
+                        schedulerForm.frequency_config?.dayOfMonth || 1
+                      } at ${schedulerForm.start_time} starting ${
+                        schedulerForm.start_date
+                      }`
+                    : getLocalTimeDisplay(
+                        schedulerForm.start_date,
+                        schedulerForm.start_time
+                      )}
                 </p>
               </div>
 
               {/* Frequency Configuration */}
-              {schedulerForm.schedule_type === "weekly" && (
+              {(schedulerForm.schedule_type === "weekly" ||
+                schedulerForm.schedule_type === "2x_week" ||
+                schedulerForm.schedule_type === "3x_week") && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Days of Week</label>
                   <div className="flex flex-wrap gap-2">
@@ -748,9 +778,29 @@ export default function MessageSchedulerSection() {
                           onCheckedChange={(checked) => {
                             const current =
                               schedulerForm.frequency_config.dayOfWeek || [];
-                            const updated = checked
-                              ? [...current, index]
-                              : current.filter((d: number) => d !== index);
+                            let updated;
+
+                            if (checked) {
+                              updated = [...current, index];
+                            } else {
+                              updated = current.filter(
+                                (d: number) => d !== index
+                              );
+                            }
+
+                            // For 2x/week and 3x/week, limit selections
+                            if (
+                              schedulerForm.schedule_type === "2x_week" &&
+                              updated.length > 2
+                            ) {
+                              updated = updated.slice(-2); // Keep only last 2 selected
+                            } else if (
+                              schedulerForm.schedule_type === "3x_week" &&
+                              updated.length > 3
+                            ) {
+                              updated = updated.slice(-3); // Keep only last 3 selected
+                            }
+
                             setSchedulerForm({
                               ...schedulerForm,
                               frequency_config: {
@@ -766,6 +816,14 @@ export default function MessageSchedulerSection() {
                       </div>
                     ))}
                   </div>
+                  {(schedulerForm.schedule_type === "2x_week" ||
+                    schedulerForm.schedule_type === "3x_week") && (
+                    <p className="text-xs text-gray-500">
+                      {schedulerForm.schedule_type === "2x_week"
+                        ? "Select up to 2 days per week"
+                        : "Select up to 3 days per week"}
+                    </p>
+                  )}
                 </div>
               )}
 

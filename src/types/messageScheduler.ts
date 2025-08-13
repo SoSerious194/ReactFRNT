@@ -19,7 +19,13 @@ export interface ScheduledMessage {
   template_id?: string;
 
   // Scheduling options
-  schedule_type: "once" | "daily" | "weekly" | "monthly";
+  schedule_type:
+    | "once"
+    | "daily"
+    | "weekly"
+    | "2x_week"
+    | "3x_week"
+    | "monthly";
   start_date: string;
   end_date?: string;
   start_time: string;
@@ -171,7 +177,14 @@ export const MESSAGE_CATEGORIES = [
   "general",
 ] as const;
 
-export const SCHEDULE_TYPES = ["once", "daily", "weekly", "monthly"] as const;
+export const SCHEDULE_TYPES = [
+  "once",
+  "daily",
+  "weekly",
+  "2x_week",
+  "3x_week",
+  "monthly",
+] as const;
 
 export const MESSAGE_STATUSES = [
   "active",

@@ -4,8 +4,10 @@ import { MessageSchedulerServices } from "@/lib/messageSchedulerServices";
 
 // Helper function to determine if a message should be sent based on its schedule
 function shouldSendMessage(message: any, now: Date): boolean {
-  const lastSentAt = message.last_sent_at ? new Date(message.last_sent_at) : null;
-  
+  const lastSentAt = message.last_sent_at
+    ? new Date(message.last_sent_at)
+    : null;
+
   switch (message.schedule_type) {
     case "5min":
       // For 5-minute schedules, send if:
@@ -14,7 +16,7 @@ function shouldSendMessage(message: any, now: Date): boolean {
       if (!lastSentAt) return true;
       const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
       return lastSentAt <= fiveMinutesAgo;
-      
+
     case "daily":
       // For daily schedules, send if:
       // 1. Never sent before, OR
@@ -22,7 +24,7 @@ function shouldSendMessage(message: any, now: Date): boolean {
       if (!lastSentAt) return true;
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       return lastSentAt <= oneDayAgo;
-      
+
     case "weekly":
       // For weekly schedules, send if:
       // 1. Never sent before, OR
@@ -30,7 +32,27 @@ function shouldSendMessage(message: any, now: Date): boolean {
       if (!lastSentAt) return true;
       const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       return lastSentAt <= oneWeekAgo;
-      
+
+    case "2x_week":
+      // For 2x/week schedules, send if:
+      // 1. Never sent before, OR
+      // 2. Last sent more than 3.5 days ago (half a week)
+      if (!lastSentAt) return true;
+      const threeAndHalfDaysAgo = new Date(
+        now.getTime() - 3.5 * 24 * 60 * 60 * 1000
+      );
+      return lastSentAt <= threeAndHalfDaysAgo;
+
+    case "3x_week":
+      // For 3x/week schedules, send if:
+      // 1. Never sent before, OR
+      // 2. Last sent more than 2.33 days ago (2.33 days = 7/3 days)
+      if (!lastSentAt) return true;
+      const twoAndThirdDaysAgo = new Date(
+        now.getTime() - 2.33 * 24 * 60 * 60 * 1000
+      );
+      return lastSentAt <= twoAndThirdDaysAgo;
+
     case "monthly":
       // For monthly schedules, send if:
       // 1. Never sent before, OR
@@ -38,7 +60,7 @@ function shouldSendMessage(message: any, now: Date): boolean {
       if (!lastSentAt) return true;
       const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       return lastSentAt <= oneMonthAgo;
-      
+
     default:
       return false;
   }
@@ -66,7 +88,14 @@ export async function GET(request: NextRequest) {
       .select("*")
       .eq("status", "active")
       .eq("is_active", true)
-      .in("schedule_type", ["5min", "daily", "weekly", "monthly"]);
+      .in("schedule_type", [
+        "5min",
+        "daily",
+        "weekly",
+        "2x_week",
+        "3x_week",
+        "monthly",
+      ]);
 
     if (error) {
       console.error("Error fetching scheduled messages:", error);
@@ -84,7 +113,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log(`Found ${allScheduledMessages.length} active recurring messages`);
+    console.log(
+      `Found ${allScheduledMessages.length} active recurring messages`
+    );
 
     // Filter messages that need to be sent based on their schedule
     const now = new Date();
@@ -107,8 +138,10 @@ export async function GET(request: NextRequest) {
 
     for (const message of messagesToProcess) {
       try {
-        console.log(`Processing message: ${message.id} (${message.schedule_type})`);
-        
+        console.log(
+          `Processing message: ${message.id} (${message.schedule_type})`
+        );
+
         // Determine target users
         let targetUsers: any[] = [];
 
@@ -180,7 +213,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log(`Cron job completed. Processed: ${processedCount}, Errors: ${results.length}`);
+    console.log(
+      `Cron job completed. Processed: ${processedCount}, Errors: ${results.length}`
+    );
 
     return NextResponse.json({
       message: "Recurring messages processed",

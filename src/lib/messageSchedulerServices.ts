@@ -218,6 +218,12 @@ export class MessageSchedulerServices {
       case "weekly":
         const dayOfWeek = request.frequency_config?.dayOfWeek?.[0] || 1;
         return `${utcMinutes} ${utcHours} * * ${dayOfWeek}`;
+      case "2x_week":
+        const days2x = request.frequency_config?.dayOfWeek || [1, 4]; // Monday, Thursday by default
+        return `${utcMinutes} ${utcHours} * * ${days2x.join(",")}`;
+      case "3x_week":
+        const days3x = request.frequency_config?.dayOfWeek || [1, 3, 5]; // Monday, Wednesday, Friday by default
+        return `${utcMinutes} ${utcHours} * * ${days3x.join(",")}`;
       case "monthly":
         const dayOfMonth = request.frequency_config?.dayOfMonth || 1;
         return `${utcMinutes} ${utcHours} ${dayOfMonth} * *`;
