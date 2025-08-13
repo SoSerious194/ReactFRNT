@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
-import { MessageSchedulerServices } from "@/lib/messageSchedulerServices";
+import { StreamChat } from "stream-chat";
+import { createClient } from "@supabase/supabase-js";
 
 // Helper function to determine if a message should be sent based on its schedule
 function shouldSendMessage(message: any, now: Date): boolean {
-  const lastSentAt = message.last_sent_at ? new Date(message.last_sent_at) : null;
-  
+  const lastSentAt = message.last_sent_at
+    ? new Date(message.last_sent_at)
+    : null;
+
   switch (message.schedule_type) {
     case "5min":
       // For 5-minute schedules, send if:
@@ -14,7 +16,7 @@ function shouldSendMessage(message: any, now: Date): boolean {
       if (!lastSentAt) return true;
       const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
       return lastSentAt <= fiveMinutesAgo;
-      
+
     case "daily":
       // For daily schedules, send if:
       // 1. Never sent before, OR
@@ -22,7 +24,7 @@ function shouldSendMessage(message: any, now: Date): boolean {
       if (!lastSentAt) return true;
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       return lastSentAt <= oneDayAgo;
-      
+
     case "weekly":
       // For weekly schedules, send if:
       // 1. Never sent before, OR
@@ -30,7 +32,7 @@ function shouldSendMessage(message: any, now: Date): boolean {
       if (!lastSentAt) return true;
       const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       return lastSentAt <= oneWeekAgo;
-      
+
     case "monthly":
       // For monthly schedules, send if:
       // 1. Never sent before, OR
@@ -38,7 +40,7 @@ function shouldSendMessage(message: any, now: Date): boolean {
       if (!lastSentAt) return true;
       const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       return lastSentAt <= oneMonthAgo;
-      
+
     default:
       return false;
   }
@@ -46,149 +48,68 @@ function shouldSendMessage(message: any, now: Date): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("=== PROCESS SCHEDULED MESSAGES ENDPOINT CALLED ===");
-    console.log("Headers:", Object.fromEntries(request.headers.entries()));
+    console.log("Processing scheduled messages at:", new Date().toISOString());
 
     // Check for API key to secure this endpoint
     const authHeader = request.headers.get("authorization");
     const expectedKey = process.env.SCHEDULER_API_KEY;
 
-    console.log("Auth check:", {
-      hasAuthHeader: !!authHeader,
-      hasExpectedKey: !!expectedKey,
-      authMatches: authHeader === `Bearer ${expectedKey}`,
-    });
-
     if (!expectedKey || authHeader !== `Bearer ${expectedKey}`) {
-      console.log("Unauthorized request");
+      console.log("Unauthorized request to process-scheduled-messages");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = await createClient();
+    // Initialize clients
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const streamKey = process.env.NEXT_PUBLIC_STREAM_KEY;
+    const streamSecret = process.env.STREAM_SECRET;
 
-    // Parse request body for QStash integration
-    const body = await request.json();
-    const { messageId, coachId, recurring } = body;
+    if (!supabaseUrl || !supabaseServiceKey || !streamKey || !streamSecret) {
+      console.error("Missing environment variables");
+      return NextResponse.json(
+        { error: "Missing environment variables" },
+        { status: 500 }
+      );
+    }
 
-    console.log("Processing scheduled message request:", {
-      messageId,
-      coachId,
-      recurring,
-      body,
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const streamClient = StreamChat.getInstance(streamKey, streamSecret);
+
+    // Get all active recurring messages
+    const { data: allScheduledMessages, error } = await supabase
+      .from("scheduled_messages")
+      .select("*")
+      .eq("status", "active")
+      .eq("is_active", true)
+      .in("schedule_type", ["5min", "daily", "weekly", "monthly"]);
+
+    if (error) {
+      console.error("Error fetching scheduled messages:", error);
+      return NextResponse.json(
+        { error: "Failed to fetch scheduled messages" },
+        { status: 500 }
+      );
+    }
+
+    if (!allScheduledMessages || allScheduledMessages.length === 0) {
+      return NextResponse.json({
+        message: "No recurring messages to process",
+        processed: 0,
+      });
+    }
+
+    // Filter messages that need to be sent based on their schedule
+    const now = new Date();
+    const messagesToProcess = allScheduledMessages.filter((message) => {
+      return shouldSendMessage(message, now);
     });
 
-    let messagesToProcess: any[] = [];
-
-    if (messageId) {
-      // Process specific message (from QStash)
-      console.log(
-        `Processing specific message: ${messageId} for coach: ${coachId}`
-      );
-
-      const { data: message, error } = await supabase
-        .from("scheduled_messages")
-        .select("*")
-        .eq("id", messageId)
-        .eq("coach_id", coachId)
-        .eq("status", "active")
-        .eq("is_active", true)
-        .single();
-
-      if (error || !message) {
-        console.error("Message not found or inactive:", messageId, error);
-        return NextResponse.json(
-          { error: "Message not found" },
-          { status: 404 }
-        );
-      }
-
-      console.log("Found message to process:", message);
-
-      // Special handling for 5-minute schedules - always process them
-      if (message.schedule_type === "5min") {
-        console.log(`Processing 5-minute schedule - bypassing start date check`);
-        messagesToProcess = [message];
-      } else {
-        // Check if message should be processed based on start date
-        // Convert local time to UTC for comparison
-        const timezone = message.timezone || "UTC";
-        const [localHours, localMinutes] = message.start_time
-          .split(":")
-          .map(Number);
-        const [year, month, day] = message.start_date.split("-").map(Number);
-
-        // Create local date
-        const localDate = new Date(
-          year,
-          month - 1,
-          day,
-          localHours,
-          localMinutes,
-          0,
-          0
-        );
-        const localOffset = localDate.getTimezoneOffset();
-        const startDateTimeUTC = new Date(
-          localDate.getTime() + localOffset * 60 * 1000
-        );
-        const now = new Date();
-
-        console.log(
-          `Message start date (local): ${message.start_date}T${message.start_time} ${timezone}`,
-          `Message start date (UTC): ${startDateTimeUTC.toISOString()}`,
-          `Current time (UTC): ${now.toISOString()}`
-        );
-
-        if (startDateTimeUTC > now) {
-          console.log(
-            `Message ${messageId} is scheduled for future, skipping processing`
-          );
-          return NextResponse.json({
-            message: "Message scheduled for future",
-            startDateLocal: `${message.start_date}T${message.start_time}`,
-            startDateUTC: startDateTimeUTC.toISOString(),
-            currentTime: now.toISOString(),
-          });
-        }
-
-        messagesToProcess = [message];
-      }
-    } else {
-      // Process all active recurring messages
-      const { data: allScheduledMessages, error } = await supabase
-        .from("scheduled_messages")
-        .select("*")
-        .eq("status", "active")
-        .eq("is_active", true)
-        .in("schedule_type", ["5min", "daily", "weekly", "monthly"]);
-
-      if (error) {
-        console.error("Error fetching scheduled messages:", error);
-        return NextResponse.json(
-          { error: "Failed to fetch scheduled messages" },
-          { status: 500 }
-        );
-      }
-
-      if (!allScheduledMessages || allScheduledMessages.length === 0) {
-        return NextResponse.json({
-          message: "No recurring messages to process",
-          processed: 0,
-        });
-      }
-
-      // Filter messages that need to be sent based on their schedule
-      const now = new Date();
-      messagesToProcess = allScheduledMessages.filter((message) => {
-        return shouldSendMessage(message, now);
+    if (messagesToProcess.length === 0) {
+      return NextResponse.json({
+        message: "No messages due for sending",
+        processed: 0,
       });
-
-      if (messagesToProcess.length === 0) {
-        return NextResponse.json({
-          message: "No messages due for sending",
-          processed: 0,
-        });
-      }
     }
 
     let processedCount = 0;
@@ -196,6 +117,10 @@ export async function POST(request: NextRequest) {
 
     for (const message of messagesToProcess) {
       try {
+        console.log(
+          `Processing message: ${message.id} (${message.schedule_type})`
+        );
+
         // Determine target users
         let targetUsers: any[] = [];
 
@@ -203,7 +128,7 @@ export async function POST(request: NextRequest) {
           // Get all users assigned to this coach
           const { data: users } = await supabase
             .from("users")
-            .select("id")
+            .select("id, full_name")
             .eq("coach", message.coach_id);
           targetUsers = users || [];
         } else if (
@@ -213,7 +138,7 @@ export async function POST(request: NextRequest) {
           // Get specific users
           const { data: users } = await supabase
             .from("users")
-            .select("id")
+            .select("id, full_name")
             .in("id", message.target_user_ids);
           targetUsers = users || [];
         }
@@ -224,10 +149,66 @@ export async function POST(request: NextRequest) {
         for (const user of targetUsers) {
           try {
             console.log(`Sending message ${message.id} to user ${user.id}`);
-            await MessageSchedulerServices.sendScheduledMessage(
-              message.id,
-              user.id
+
+            // Get coach details
+            const { data: coach, error: coachError } = await supabase
+              .from("users")
+              .select("id, full_name")
+              .eq("id", message.coach_id)
+              .single();
+
+            if (coachError || !coach) {
+              throw new Error("Coach not found");
+            }
+
+            // Create channel ID (same logic as your inbox page)
+            const combinedIds = [coach.id, user.id].sort().join("-");
+            const hash = combinedIds.split("").reduce((a, b) => {
+              a = (a << 5) - a + b.charCodeAt(0);
+              return a & a;
+            }, 0);
+            const channelId = `chat_${Math.abs(hash).toString(36)}`;
+
+            console.log(
+              "Creating channel with ID:",
+              channelId,
+              "Length:",
+              channelId.length
             );
+
+            // Get or create channel
+            const channel = streamClient.channel("messaging", channelId, {
+              members: [coach.id, user.id],
+            });
+
+            // Initialize the channel (same as your inbox page)
+            await channel.watch();
+
+            // Upsert users
+            await streamClient.upsertUser({
+              id: coach.id,
+              name: coach.full_name,
+            });
+
+            await streamClient.upsertUser({
+              id: user.id,
+              name: user.full_name || "User",
+            });
+
+            // Send message
+            await channel.sendMessage({
+              text: message.content,
+              user_id: coach.id,
+            });
+
+            // Record delivery in database
+            await supabase.from("message_deliveries").insert({
+              scheduled_message_id: message.id,
+              user_id: user.id,
+              sent_at: new Date().toISOString(),
+              status: "sent",
+            });
+
             processedCount++;
             console.log(`Successfully sent message to user ${user.id}`);
           } catch (sendError) {
@@ -235,6 +216,19 @@ export async function POST(request: NextRequest) {
               `Failed to send message ${message.id} to user ${user.id}:`,
               sendError
             );
+
+            // Record failed delivery
+            await supabase.from("message_deliveries").insert({
+              scheduled_message_id: message.id,
+              user_id: user.id,
+              sent_at: new Date().toISOString(),
+              status: "failed",
+              error_message:
+                sendError instanceof Error
+                  ? sendError.message
+                  : "Unknown error",
+            });
+
             results.push({
               messageId: message.id,
               userId: user.id,
@@ -246,26 +240,15 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Update message status and next send time
-        if (message.schedule_type === "once") {
-          // Mark one-time messages as completed
-          await supabase
-            .from("scheduled_messages")
-            .update({
-              status: "completed",
-              last_sent_at: new Date().toISOString(),
-            })
-            .eq("id", message.id);
-        } else {
-          // For recurring messages, update last sent time
-          // QStash handles the next execution via cron
-          await supabase
-            .from("scheduled_messages")
-            .update({
-              last_sent_at: new Date().toISOString(),
-            })
-            .eq("id", message.id);
-        }
+        // Update last sent time for recurring messages
+        await supabase
+          .from("scheduled_messages")
+          .update({
+            last_sent_at: new Date().toISOString(),
+          })
+          .eq("id", message.id);
+
+        console.log(`Updated last_sent_at for message ${message.id}`);
       } catch (messageError) {
         console.error(`Error processing message ${message.id}:`, messageError);
         results.push({
@@ -278,17 +261,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log(
+      `API completed. Processed: ${processedCount}, Errors: ${results.length}`
+    );
+
     return NextResponse.json({
       message: "Scheduled messages processed",
       processed: processedCount,
       total: messagesToProcess.length,
       errors: results,
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("Error processing scheduled messages:", error);
+    console.error("Error in API:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
