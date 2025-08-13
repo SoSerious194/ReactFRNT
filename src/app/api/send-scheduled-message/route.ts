@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
 
     if (!supabaseUrl || !supabaseServiceKey || !streamKey || !streamSecret) {
       console.error("Missing environment variables");
-      return NextResponse.json({ error: "Missing environment variables" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Missing environment variables" },
+        { status: 500 }
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -82,13 +85,23 @@ export async function POST(request: NextRequest) {
       throw new Error("User not found");
     }
 
-    // Create channel ID (same logic as your app)
-    const channelId = `chat_${Math.abs(hashCode(`${coach.id}_${user.id}`)).toString(36)}`;
+    // Create channel ID (same logic as your inbox page)
+    const combinedIds = [coach.id, user.id].sort().join("-");
+    const hash = combinedIds.split("").reduce((a, b) => {
+      a = (a << 5) - a + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+    const channelId = `chat_${Math.abs(hash).toString(36)}`;
+
+    console.log("Creating channel with ID:", channelId, "Length:", channelId.length);
 
     // Get or create channel
     const channel = streamClient.channel("messaging", channelId, {
       members: [coach.id, user.id],
     });
+
+    // Initialize the channel (same as your inbox page)
+    await channel.watch();
 
     // Upsert users
     await streamClient.upsertUser({
@@ -127,7 +140,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to send message",
-        details: error instanceof Error ? error.message : "Unknown error"
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );
