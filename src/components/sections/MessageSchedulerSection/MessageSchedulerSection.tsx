@@ -7,7 +7,9 @@ import {
   MessageTemplate,
   ScheduledMessage,
   CreateMessageTemplateRequest,
+  UpdateMessageTemplateRequest,
   CreateScheduledMessageRequest,
+  UpdateScheduledMessageRequest,
   TemplateGenerationRequest,
   MESSAGE_CATEGORIES,
   SCHEDULE_TYPES,
@@ -55,6 +57,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
+import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 
 interface User {
   id: string;
@@ -117,6 +120,16 @@ export default function MessageSchedulerSection() {
     useState<MessageTemplate | null>(null);
   const [editingScheduled, setEditingScheduled] =
     useState<ScheduledMessage | null>(null);
+
+  // Confirmation dialog states
+  const [showDeleteTemplateDialog, setShowDeleteTemplateDialog] =
+    useState(false);
+  const [showDeleteScheduledDialog, setShowDeleteScheduledDialog] =
+    useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
+  const [scheduledToDelete, setScheduledToDelete] = useState<string | null>(
+    null
+  );
 
   // Template creation state
   const [templateCreationMode, setTemplateCreationMode] = useState<
@@ -227,21 +240,40 @@ export default function MessageSchedulerSection() {
       if (!templateForm.title || !templateForm.content) return;
 
       try {
-        const request: CreateMessageTemplateRequest = {
-          title: templateForm.title,
-          content: templateForm.content,
-          category: templateForm.category,
-        };
+        if (editingTemplate) {
+          // Update existing template
+          const request: UpdateMessageTemplateRequest = {
+            title: templateForm.title,
+            content: templateForm.content,
+            category: templateForm.category,
+          };
 
-        await MessageSchedulerServices.createTemplate(user.id, request);
+          await MessageSchedulerServices.updateTemplate(
+            user.id,
+            editingTemplate.id,
+            request
+          );
+        } else {
+          // Create new template
+          const request: CreateMessageTemplateRequest = {
+            title: templateForm.title,
+            content: templateForm.content,
+            category: templateForm.category,
+          };
+
+          await MessageSchedulerServices.createTemplate(user.id, request);
+        }
+
         setTemplateForm({
           title: "",
           content: "",
           category: "general",
         });
+        setEditingTemplate(null);
+        setShowTemplateDialog(false);
         loadTemplates();
       } catch (error) {
-        console.error("Failed to create template:", error);
+        console.error("Failed to create/update template:", error);
       }
     }
   };
@@ -256,24 +288,51 @@ export default function MessageSchedulerSection() {
     }
 
     try {
-      const request: CreateScheduledMessageRequest = {
-        title: schedulerForm.title,
-        content: schedulerForm.content,
-        template_id: schedulerForm.template_id || undefined,
-        schedule_type: schedulerForm.schedule_type,
-        start_date: schedulerForm.start_date,
-        end_date: schedulerForm.end_date || undefined,
-        start_time: schedulerForm.start_time,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        frequency_config:
-          Object.keys(schedulerForm.frequency_config).length > 0
-            ? schedulerForm.frequency_config
-            : undefined,
-        target_type: schedulerForm.target_type,
-        target_user_ids: schedulerForm.target_user_ids,
-      };
+      if (editingScheduled) {
+        // Update existing scheduled message
+        const request: UpdateScheduledMessageRequest = {
+          title: schedulerForm.title,
+          content: schedulerForm.content,
+          template_id: schedulerForm.template_id || undefined,
+          schedule_type: schedulerForm.schedule_type,
+          start_date: schedulerForm.start_date,
+          end_date: schedulerForm.end_date || undefined,
+          start_time: schedulerForm.start_time,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          frequency_config:
+            Object.keys(schedulerForm.frequency_config).length > 0
+              ? schedulerForm.frequency_config
+              : undefined,
+          target_type: schedulerForm.target_type,
+          target_user_ids: schedulerForm.target_user_ids,
+        };
 
-      await MessageSchedulerServices.createScheduledMessage(user.id, request);
+        await MessageSchedulerServices.updateScheduledMessage(
+          user.id,
+          editingScheduled.id,
+          request
+        );
+      } else {
+        // Create new scheduled message
+        const request: CreateScheduledMessageRequest = {
+          title: schedulerForm.title,
+          content: schedulerForm.content,
+          template_id: schedulerForm.template_id || undefined,
+          schedule_type: schedulerForm.schedule_type,
+          start_date: schedulerForm.start_date,
+          end_date: schedulerForm.end_date || undefined,
+          start_time: schedulerForm.start_time,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          frequency_config:
+            Object.keys(schedulerForm.frequency_config).length > 0
+              ? schedulerForm.frequency_config
+              : undefined,
+          target_type: schedulerForm.target_type,
+          target_user_ids: schedulerForm.target_user_ids,
+        };
+
+        await MessageSchedulerServices.createScheduledMessage(user.id, request);
+      }
 
       // Reset form
       setSchedulerForm({
@@ -289,6 +348,7 @@ export default function MessageSchedulerSection() {
         frequency_config: {},
       });
 
+      setEditingScheduled(null);
       loadScheduledMessages();
     } catch (error) {
       console.error("Failed to schedule message:", error);
@@ -375,15 +435,70 @@ export default function MessageSchedulerSection() {
     }
   };
 
-  const handleDeleteScheduled = async (messageId: string) => {
-    if (!user) return;
+  const handleEditTemplate = (template: MessageTemplate) => {
+    setEditingTemplate(template);
+    setTemplateForm({
+      title: template.title,
+      content: template.content,
+      category: template.category,
+    });
+    setShowTemplateDialog(true);
+  };
+
+  const handleDeleteTemplate = (templateId: string) => {
+    setTemplateToDelete(templateId);
+    setShowDeleteTemplateDialog(true);
+  };
+
+  const handleConfirmDeleteTemplate = async () => {
+    if (!user || !templateToDelete) return;
 
     try {
-      await MessageSchedulerServices.deleteScheduledMessage(user.id, messageId);
+      await MessageSchedulerServices.deleteTemplate(user.id, templateToDelete);
+      loadTemplates();
+      setShowDeleteTemplateDialog(false);
+      setTemplateToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete template:", error);
+    }
+  };
+
+  const handleDeleteScheduled = (messageId: string) => {
+    setScheduledToDelete(messageId);
+    setShowDeleteScheduledDialog(true);
+  };
+
+  const handleConfirmDeleteScheduled = async () => {
+    if (!user || !scheduledToDelete) return;
+
+    try {
+      await MessageSchedulerServices.deleteScheduledMessage(
+        user.id,
+        scheduledToDelete
+      );
       loadScheduledMessages();
+      setShowDeleteScheduledDialog(false);
+      setScheduledToDelete(null);
     } catch (error) {
       console.error("Failed to delete scheduled message:", error);
     }
+  };
+
+  const handleEditScheduled = (message: ScheduledMessage) => {
+    setEditingScheduled(message);
+    setSchedulerForm({
+      title: message.title,
+      content: message.content,
+      template_id: message.template_id || "",
+      schedule_type: message.schedule_type,
+      start_date: message.start_date,
+      end_date: message.end_date || "",
+      start_time: message.start_time,
+      target_type: message.target_type,
+      target_user_ids: message.target_user_ids,
+      frequency_config: message.frequency_config || {},
+    });
+    setActiveTab("scheduler");
   };
 
   const getStatusColor = (status: string) => {
@@ -470,9 +585,15 @@ export default function MessageSchedulerSection() {
         >
           <Card>
             <CardHeader>
-              <CardTitle>Schedule New Message</CardTitle>
+              <CardTitle>
+                {editingScheduled
+                  ? "Edit Scheduled Message"
+                  : "Schedule New Message"}
+              </CardTitle>
               <CardDescription>
-                Create and schedule a message for your clients
+                {editingScheduled
+                  ? "Edit your scheduled message"
+                  : "Create and schedule a message for your clients"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -694,7 +815,7 @@ export default function MessageSchedulerSection() {
 
               <Button onClick={handleScheduleMessage} className="w-full">
                 <Calendar className="w-4 h-4 mr-2" />
-                Schedule Message
+                {editingScheduled ? "Update Message" : "Schedule Message"}
               </Button>
             </CardContent>
           </Card>
@@ -764,11 +885,19 @@ export default function MessageSchedulerSection() {
                             <Copy className="w-4 h-4 mr-1" />
                             Use
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditTemplate(template)}
+                          >
                             <Edit className="w-4 h-4 mr-1" />
                             Edit
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteTemplate(template.id)}
+                          >
                             <Trash2 className="w-4 h-4 mr-1" />
                             Delete
                           </Button>
@@ -877,7 +1006,11 @@ export default function MessageSchedulerSection() {
                               </>
                             )}
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditScheduled(message)}
+                          >
                             <Edit className="w-4 h-4 mr-1" />
                             Edit
                           </Button>
@@ -1054,9 +1187,13 @@ export default function MessageSchedulerSection() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Template</DialogTitle>
+            <DialogTitle>
+              {editingTemplate ? "Edit Template" : "Create New Template"}
+            </DialogTitle>
             <DialogDescription>
-              Create a reusable message template manually or with AI
+              {editingTemplate
+                ? "Edit your message template"
+                : "Create a reusable message template manually or with AI"}
             </DialogDescription>
           </DialogHeader>
 
@@ -1195,6 +1332,8 @@ export default function MessageSchedulerSection() {
                   <Sparkles className="w-4 h-4 mr-2" />
                   Generate & Create Template
                 </>
+              ) : editingTemplate ? (
+                "Update Template"
               ) : (
                 "Create Template"
               )}
@@ -1202,6 +1341,33 @@ export default function MessageSchedulerSection() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmationDialog
+        isOpen={showDeleteTemplateDialog}
+        onClose={() => {
+          setShowDeleteTemplateDialog(false);
+          setTemplateToDelete(null);
+        }}
+        onConfirm={handleConfirmDeleteTemplate}
+        title="Delete Template"
+        message="Are you sure you want to delete this template? This action cannot be undone."
+        confirmText="Delete"
+        variant="danger"
+      />
+
+      <ConfirmationDialog
+        isOpen={showDeleteScheduledDialog}
+        onClose={() => {
+          setShowDeleteScheduledDialog(false);
+          setScheduledToDelete(null);
+        }}
+        onConfirm={handleConfirmDeleteScheduled}
+        title="Delete Scheduled Message"
+        message="Are you sure you want to delete this scheduled message? This action cannot be undone."
+        confirmText="Delete"
+        variant="danger"
+      />
     </div>
   );
 }
