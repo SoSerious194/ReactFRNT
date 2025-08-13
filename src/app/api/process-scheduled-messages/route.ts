@@ -9,14 +9,6 @@ function shouldSendMessage(message: any, now: Date): boolean {
     : null;
 
   switch (message.schedule_type) {
-    case "5min":
-      // For 5-minute schedules, send if:
-      // 1. Never sent before, OR
-      // 2. Last sent more than 5 minutes ago
-      if (!lastSentAt) return true;
-      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-      return lastSentAt <= fiveMinutesAgo;
-
     case "daily":
       // For daily schedules, send if:
       // 1. Never sent before, OR
@@ -82,7 +74,7 @@ export async function POST(request: NextRequest) {
       .select("*")
       .eq("status", "active")
       .eq("is_active", true)
-      .in("schedule_type", ["5min", "daily", "weekly", "monthly"]);
+      .in("schedule_type", ["daily", "weekly", "monthly"]);
 
     if (error) {
       console.error("Error fetching scheduled messages:", error);
