@@ -158,12 +158,17 @@ export class MessageSchedulerServices {
           );
         }
       } catch (qstashError) {
-        console.error("Failed to schedule one-time message with QStash:", qstashError);
+        console.error(
+          "Failed to schedule one-time message with QStash:",
+          qstashError
+        );
       }
     } else {
       // For recurring messages, just store in database
       // The cron job will handle the scheduling
-      console.log(`Recurring message ${data.id} stored in database. Cron job will handle scheduling.`);
+      console.log(
+        `Recurring message ${data.id} stored in database. Cron job will handle scheduling.`
+      );
     }
 
     return data;
@@ -208,9 +213,6 @@ export class MessageSchedulerServices {
     );
 
     switch (request.schedule_type) {
-      case "5min":
-        // Every 5 minutes
-        return "*/5 * * * *";
       case "daily":
         return `${utcMinutes} ${utcHours} * * *`;
       case "weekly":

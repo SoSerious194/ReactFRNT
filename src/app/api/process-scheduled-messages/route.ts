@@ -88,6 +88,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         message: "No recurring messages to process",
         processed: 0,
+        status: "success",
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -101,6 +103,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         message: "No messages due for sending",
         processed: 0,
+        status: "success",
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -262,6 +266,7 @@ export async function POST(request: NextRequest) {
       processed: processedCount,
       total: messagesToProcess.length,
       errors: results,
+      status: "success",
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
