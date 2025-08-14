@@ -16,8 +16,8 @@ import {
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const streamKey = process.env.NEXT_PUBLIC_STREAM_KEY!;
-const streamSecret = process.env.STREAM_SECRET!;
+const streamKey = process.env.STREAM_API_KEY!;
+const streamSecret = process.env.STREAM_API_SECRET!;
 
 export class AIMessageService {
   private static supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -147,7 +147,10 @@ export class AIMessageService {
     const prompt = this.buildPrompt(request);
 
     try {
-      const response = await fetch("/api/generate-ai-message", {
+      // Use absolute URL for server-side requests
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const response = await fetch(`${baseUrl}/api/generate-ai-message`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -210,20 +213,65 @@ export class AIMessageService {
   // Send AI message via GetStream
   static async sendMessage(message: AIGeneratedMessage): Promise<string> {
     try {
-      // Get or create channel
-      const channelId = `chat_${message.coach_id}_${message.client_id}`;
-      const channel = this.streamClient.channel("messaging", channelId, {
+      // Check if we have proper API keys
+      if (!process.env.STREAM_API_KEY || !process.env.STREAM_API_SECRET) {
+        console.warn(
+          "GetStream API keys not configured, skipping message send"
+        );
+        return "demo_message_id";
+      }
+
+      const apiKey = process.env.STREAM_API_KEY;
+      const apiSecret = process.env.STREAM_API_SECRET;
+
+      console.log("Creating StreamChat instance...");
+
+      // Use server-side authentication with hardcoded values
+      const serverClient = StreamChat.getInstance(apiKey, apiSecret);
+      console.log("StreamChat instance created successfully");
+
+      // Create users first (same as working test)
+      console.log("Creating users...");
+      await serverClient.upsertUser({
+        id: message.coach_id,
+        name: "Coach",
+      });
+      await serverClient.upsertUser({
+        id: message.client_id,
+        name: "Client",
+      });
+      console.log("Users created successfully");
+
+      // Generate channel ID using the same logic as frontend
+      const combinedIds = [message.coach_id, message.client_id]
+        .sort()
+        .join("-");
+      const hash = combinedIds.split("").reduce((a, b) => {
+        a = (a << 5) - a + b.charCodeAt(0);
+        return a & a;
+      }, 0);
+      const channelId = `chat_${Math.abs(hash).toString(36)}`;
+
+      console.log("Creating channel with ID:", channelId);
+
+      // Create or get the channel (same as working test)
+      const channel = serverClient.channel("messaging", channelId, {
         members: [message.coach_id, message.client_id],
+        created_by_id: message.coach_id, // Required for server-side auth
       });
 
+      console.log("Channel created, watching...");
       await channel.watch();
+      console.log("Channel watched successfully");
 
-      // Send message
+      // Send message as the coach
+      console.log("Sending message...");
       const response = await channel.sendMessage({
         text: message.content,
         user_id: message.coach_id,
       });
 
+      console.log("Message sent successfully:", response.message?.id);
       return response.message?.id || "";
     } catch (error) {
       console.error("Failed to send AI message:", error);

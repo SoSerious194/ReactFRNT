@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { StreamChat } from "stream-chat";
 import { createClient } from "@supabase/supabase-js";
+import { EventDetectionService } from "@/lib/eventDetectionService";
+import { AIMessageService } from "@/lib/aiMessageService";
 
 // Helper function to determine if a message should be sent based on its schedule
 function shouldSendMessage(message: any, now: Date): boolean {
@@ -74,8 +76,8 @@ export async function POST(request: NextRequest) {
     // Initialize clients
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const streamKey = process.env.NEXT_PUBLIC_STREAM_KEY;
-    const streamSecret = process.env.STREAM_SECRET;
+    const streamKey = process.env.STREAM_API_KEY;
+    const streamSecret = process.env.STREAM_API_SECRET;
 
     if (!supabaseUrl || !supabaseServiceKey || !streamKey || !streamSecret) {
       console.error("Missing environment variables");
@@ -125,173 +127,205 @@ export async function POST(request: NextRequest) {
       return shouldSendMessage(message, now);
     });
 
-    if (messagesToProcess.length === 0) {
-      return NextResponse.json({
-        message: "No messages due for sending",
-        processed: 0,
-        status: "success",
-        timestamp: new Date().toISOString(),
-      });
-    }
-
+    // Process scheduled messages if any are due
     let processedCount = 0;
     const results = [];
 
-    for (const message of messagesToProcess) {
-      try {
-        console.log(
-          `Processing message: ${message.id} (${message.schedule_type})`
-        );
+    if (messagesToProcess.length > 0) {
+      for (const message of messagesToProcess) {
+        try {
+          console.log(
+            `Processing message: ${message.id} (${message.schedule_type})`
+          );
 
-        // Determine target users
-        let targetUsers: any[] = [];
+          // Determine target users
+          let targetUsers: any[] = [];
 
-        if (message.target_type === "all") {
-          // Get all users assigned to this coach
-          const { data: users } = await supabase
-            .from("users")
-            .select("id, full_name")
-            .eq("coach", message.coach_id);
-          targetUsers = users || [];
-        } else if (
-          message.target_type === "specific" &&
-          message.target_user_ids
-        ) {
-          // Get specific users
-          const { data: users } = await supabase
-            .from("users")
-            .select("id, full_name")
-            .in("id", message.target_user_ids);
-          targetUsers = users || [];
-        }
-
-        console.log(`Sending message to ${targetUsers.length} users`);
-
-        // Send message to each target user
-        for (const user of targetUsers) {
-          try {
-            console.log(`Sending message ${message.id} to user ${user.id}`);
-
-            // Get coach details
-            const { data: coach, error: coachError } = await supabase
+          if (message.target_type === "all") {
+            // Get all users assigned to this coach
+            const { data: users } = await supabase
               .from("users")
               .select("id, full_name")
-              .eq("id", message.coach_id)
-              .single();
-
-            if (coachError || !coach) {
-              throw new Error("Coach not found");
-            }
-
-            // Create channel ID (same logic as your inbox page)
-            const combinedIds = [coach.id, user.id].sort().join("-");
-            const hash = combinedIds.split("").reduce((a, b) => {
-              a = (a << 5) - a + b.charCodeAt(0);
-              return a & a;
-            }, 0);
-            const channelId = `chat_${Math.abs(hash).toString(36)}`;
-
-            console.log(
-              "Creating channel with ID:",
-              channelId,
-              "Length:",
-              channelId.length
-            );
-
-            // Get or create channel
-            const channel = streamClient.channel("messaging", channelId, {
-              members: [coach.id, user.id],
-            });
-
-            // Initialize the channel (same as your inbox page)
-            await channel.watch();
-
-            // Upsert users
-            await streamClient.upsertUser({
-              id: coach.id,
-              name: coach.full_name,
-            });
-
-            await streamClient.upsertUser({
-              id: user.id,
-              name: user.full_name || "User",
-            });
-
-            // Send message
-            await channel.sendMessage({
-              text: message.content,
-              user_id: coach.id,
-            });
-
-            // Record delivery in database
-            await supabase.from("message_deliveries").insert({
-              scheduled_message_id: message.id,
-              user_id: user.id,
-              sent_at: new Date().toISOString(),
-              status: "sent",
-            });
-
-            processedCount++;
-            console.log(`Successfully sent message to user ${user.id}`);
-          } catch (sendError) {
-            console.error(
-              `Failed to send message ${message.id} to user ${user.id}:`,
-              sendError
-            );
-
-            // Record failed delivery
-            await supabase.from("message_deliveries").insert({
-              scheduled_message_id: message.id,
-              user_id: user.id,
-              sent_at: new Date().toISOString(),
-              status: "failed",
-              error_message:
-                sendError instanceof Error
-                  ? sendError.message
-                  : "Unknown error",
-            });
-
-            results.push({
-              messageId: message.id,
-              userId: user.id,
-              error:
-                sendError instanceof Error
-                  ? sendError.message
-                  : "Unknown error",
-            });
+              .eq("coach", message.coach_id);
+            targetUsers = users || [];
+          } else if (
+            message.target_type === "specific" &&
+            message.target_user_ids
+          ) {
+            // Get specific users
+            const { data: users } = await supabase
+              .from("users")
+              .select("id, full_name")
+              .in("id", message.target_user_ids);
+            targetUsers = users || [];
           }
+
+          console.log(`Sending message to ${targetUsers.length} users`);
+
+          // Send message to each target user
+          for (const user of targetUsers) {
+            try {
+              console.log(`Sending message ${message.id} to user ${user.id}`);
+
+              // Get coach details
+              const { data: coach, error: coachError } = await supabase
+                .from("users")
+                .select("id, full_name")
+                .eq("id", message.coach_id)
+                .single();
+
+              if (coachError || !coach) {
+                throw new Error("Coach not found");
+              }
+
+              // Create channel ID (same logic as your inbox page)
+              const combinedIds = [coach.id, user.id].sort().join("-");
+              const hash = combinedIds.split("").reduce((a, b) => {
+                a = (a << 5) - a + b.charCodeAt(0);
+                return a & a;
+              }, 0);
+              const channelId = `chat_${Math.abs(hash).toString(36)}`;
+
+              console.log(
+                "Creating channel with ID:",
+                channelId,
+                "Length:",
+                channelId.length
+              );
+
+              // Upsert users first
+              await streamClient.upsertUser({
+                id: coach.id,
+                name: coach.full_name,
+              });
+
+              await streamClient.upsertUser({
+                id: user.id,
+                name: user.full_name || "User",
+              });
+
+              // Get or create channel
+              const channel = streamClient.channel("messaging", channelId, {
+                members: [coach.id, user.id],
+                created_by_id: coach.id, // Required for server-side auth
+              });
+
+              // Initialize the channel
+              await channel.watch();
+
+              // Send message
+              await channel.sendMessage({
+                text: message.content,
+                user_id: coach.id,
+              });
+
+              // Record delivery in database
+              await supabase.from("message_deliveries").insert({
+                scheduled_message_id: message.id,
+                user_id: user.id,
+                sent_at: new Date().toISOString(),
+                status: "sent",
+              });
+
+              processedCount++;
+              console.log(`Successfully sent message to user ${user.id}`);
+            } catch (sendError) {
+              console.error(
+                `Failed to send message ${message.id} to user ${user.id}:`,
+                sendError
+              );
+
+              // Record failed delivery
+              await supabase.from("message_deliveries").insert({
+                scheduled_message_id: message.id,
+                user_id: user.id,
+                sent_at: new Date().toISOString(),
+                status: "failed",
+                error_message:
+                  sendError instanceof Error
+                    ? sendError.message
+                    : "Unknown error",
+              });
+
+              results.push({
+                messageId: message.id,
+                userId: user.id,
+                error:
+                  sendError instanceof Error
+                    ? sendError.message
+                    : "Unknown error",
+              });
+            }
+          }
+
+          // Update last sent time for recurring messages
+          await supabase
+            .from("scheduled_messages")
+            .update({
+              last_sent_at: new Date().toISOString(),
+            })
+            .eq("id", message.id);
+
+          console.log(`Updated last_sent_at for message ${message.id}`);
+        } catch (messageError) {
+          console.error(
+            `Error processing message ${message.id}:`,
+            messageError
+          );
+          results.push({
+            messageId: message.id,
+            error:
+              messageError instanceof Error
+                ? messageError.message
+                : "Unknown error",
+          });
         }
-
-        // Update last sent time for recurring messages
-        await supabase
-          .from("scheduled_messages")
-          .update({
-            last_sent_at: new Date().toISOString(),
-          })
-          .eq("id", message.id);
-
-        console.log(`Updated last_sent_at for message ${message.id}`);
-      } catch (messageError) {
-        console.error(`Error processing message ${message.id}:`, messageError);
-        results.push({
-          messageId: message.id,
-          error:
-            messageError instanceof Error
-              ? messageError.message
-              : "Unknown error",
-        });
       }
     }
 
     console.log(
-      `API completed. Processed: ${processedCount}, Errors: ${results.length}`
+      `Scheduled messages completed. Processed: ${processedCount}, Errors: ${results.length}`
+    );
+
+    // Step 2: Process AI Messages
+    console.log("=== PROCESSING AI MESSAGES ===");
+    let aiProcessed = 0;
+    let aiErrors = 0;
+
+    try {
+      // Run event detection to find new events
+      console.log("Running event detection...");
+      await EventDetectionService.runAllDetection();
+
+      // Process pending AI message events
+      console.log("Processing pending AI message events...");
+      const aiResult = await AIMessageService.processPendingEvents();
+      aiProcessed = aiResult.processed;
+      aiErrors = aiResult.errors;
+
+      console.log(`AI messages processed: ${aiProcessed}, Errors: ${aiErrors}`);
+    } catch (aiError) {
+      console.error("Error processing AI messages:", aiError);
+      aiErrors++;
+    }
+
+    console.log(
+      `API completed. Scheduled: ${processedCount}, AI: ${aiProcessed}, Total Errors: ${
+        results.length + aiErrors
+      }`
     );
 
     return NextResponse.json({
-      message: "Scheduled messages processed",
-      processed: processedCount,
-      total: messagesToProcess.length,
-      errors: results,
+      message: "Scheduled and AI messages processed",
+      scheduled: {
+        processed: processedCount,
+        total: messagesToProcess.length,
+        errors: results,
+      },
+      ai: {
+        processed: aiProcessed,
+        errors: aiErrors,
+      },
       status: "success",
       timestamp: new Date().toISOString(),
     });
