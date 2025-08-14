@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { MessageSchedulerServices } from "@/lib/messageSchedulerServices";
+import { EventDetectionService } from "@/lib/eventDetectionService";
+import { AIMessageService } from "@/lib/aiMessageService";
 
 // Helper function to determine if a message should be sent based on its schedule
 function shouldSendMessage(message: any, now: Date): boolean {
@@ -217,11 +219,38 @@ export async function GET(request: NextRequest) {
       `Cron job completed. Processed: ${processedCount}, Errors: ${results.length}`
     );
 
+    // Process AI messages
+    console.log("=== PROCESSING AI MESSAGES ===");
+    let aiProcessed = 0;
+    let aiErrors = 0;
+
+    try {
+      // Run event detection first
+      await EventDetectionService.runAllDetection();
+
+      // Then process any pending AI message events
+      const aiResult = await AIMessageService.processPendingEvents();
+      aiProcessed = aiResult.processed;
+      aiErrors = aiResult.errors;
+
+      console.log(
+        `AI message processing completed. Processed: ${aiProcessed}, Errors: ${aiErrors}`
+      );
+    } catch (error) {
+      console.error("AI message processing failed:", error);
+      aiErrors++;
+    }
+
     return NextResponse.json({
-      message: "Recurring messages processed",
-      processed: processedCount,
-      total: messagesToProcess.length,
-      errors: results,
+      message: "Cron job completed successfully",
+      scheduled_messages: {
+        processed: processedCount,
+        errors: results.length,
+      },
+      ai_messages: {
+        processed: aiProcessed,
+        errors: aiErrors,
+      },
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
