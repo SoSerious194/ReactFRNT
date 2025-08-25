@@ -87,6 +87,30 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // FIRST: Save form submission with "converted" status (payment succeeded)
+        console.log("Saving form submission with 'converted' status...");
+        const { error: submissionError } = await supabase
+          .from("signup_form_submissions")
+          .insert({
+            form_id: formId,
+            coach_id: coachId,
+            form_data: { email, fullName },
+            submitted_at: new Date().toISOString(),
+            status: "converted", // Payment succeeded
+            stripe_session_id: session.id,
+            stripe_customer_id: session.customer as string,
+            stripe_subscription_id: session.subscription as string,
+          });
+
+        if (submissionError) {
+          console.error("Error saving form submission:", submissionError);
+          // Continue with user creation even if submission save fails
+        } else {
+          console.log(
+            "Form submission saved successfully with 'converted' status"
+          );
+        }
+
         // Check if user already exists (in case webhook is called multiple times)
         console.log("Checking if user already exists in webhook:", email);
         const { data: existingUser, error: userCheckError } = await supabase
@@ -100,10 +124,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ received: true });
         }
 
-        // Log the user data for debugging
-        console.log("Creating user with email:", email);
-
         // Create user in Supabase Auth
+        console.log("Creating user with email:", email);
         const { data: authData, error: authError } =
           await supabase.auth.admin.createUser({
             email,
@@ -113,6 +135,14 @@ export async function POST(request: NextRequest) {
 
         if (authError) {
           console.error("Error creating auth user:", authError);
+          // Update form submission status to "failed" if user creation fails
+          await supabase
+            .from("signup_form_submissions")
+            .update({
+              status: "failed",
+              notes: `User creation failed: ${authError.message}`,
+            })
+            .eq("stripe_session_id", session.id);
           return NextResponse.json(
             { error: "Failed to create user" },
             { status: 500 }
@@ -135,30 +165,72 @@ export async function POST(request: NextRequest) {
 
         if (userError) {
           console.error("Error saving user data:", userError);
-          // Note: We don't want to fail the webhook if this fails, as the auth user is already created
+          // Update form submission with error note
+          await supabase
+            .from("signup_form_submissions")
+            .update({
+              notes: `User data save failed: ${userError.message}`,
+            })
+            .eq("stripe_session_id", session.id);
         } else {
           console.log("User data saved successfully to users table");
         }
 
-        // Save form submission
-        console.log("Saving form submission...");
-        const { error: submissionError } = await supabase
-          .from("signup_form_submissions")
-          .insert({
-            form_id: formId,
-            coach_id: coachId,
-            form_data: { email, fullName }, // Store essential data only
-            submitted_at: new Date().toISOString(),
-            status: "converted", // Mark as converted since payment succeeded
-          });
-
-        if (submissionError) {
-          console.error("Error saving form submission:", submissionError);
-        } else {
-          console.log("Form submission saved successfully");
-        }
-
         console.log(`Successfully created user ${userId} for form ${formId}`);
+        break;
+
+      case "checkout.session.expired":
+        const expiredSession = event.data.object as Stripe.Checkout.Session;
+        console.log("=== CHECKOUT SESSION EXPIRED ===");
+        console.log("Session ID:", expiredSession.id);
+        console.log("Session metadata:", expiredSession.metadata);
+
+        const {
+          formId: expiredFormId,
+          coachId: expiredCoachId,
+          email: expiredEmail,
+          fullName: expiredFullName,
+        } = expiredSession.metadata || {};
+
+        if (expiredFormId && expiredCoachId && expiredEmail) {
+          console.log("Saving expired form submission...");
+          await supabase.from("signup_form_submissions").insert({
+            form_id: expiredFormId,
+            coach_id: expiredCoachId,
+            form_data: { email: expiredEmail, fullName: expiredFullName },
+            submitted_at: new Date().toISOString(),
+            status: "expired", // Session expired
+            stripe_session_id: expiredSession.id,
+          });
+          console.log("Expired form submission saved");
+        }
+        break;
+
+      case "checkout.session.async_payment_failed":
+        const failedSession = event.data.object as Stripe.Checkout.Session;
+        console.log("=== CHECKOUT SESSION PAYMENT FAILED ===");
+        console.log("Session ID:", failedSession.id);
+        console.log("Session metadata:", failedSession.metadata);
+
+        const {
+          formId: failedFormId,
+          coachId: failedCoachId,
+          email: failedEmail,
+          fullName: failedFullName,
+        } = failedSession.metadata || {};
+
+        if (failedFormId && failedCoachId && failedEmail) {
+          console.log("Saving failed payment form submission...");
+          await supabase.from("signup_form_submissions").insert({
+            form_id: failedFormId,
+            coach_id: failedCoachId,
+            form_data: { email: failedEmail, fullName: failedFullName },
+            submitted_at: new Date().toISOString(),
+            status: "payment_failed", // Payment failed
+            stripe_session_id: failedSession.id,
+          });
+          console.log("Failed payment form submission saved");
+        }
         break;
 
       case "invoice.payment_succeeded":

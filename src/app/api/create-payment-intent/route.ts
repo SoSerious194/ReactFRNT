@@ -46,47 +46,55 @@ export async function POST(request: NextRequest) {
     // Determine the interval based on pricing type
     const interval = form.pricing_type === "yearly" ? "year" : "month";
 
-    // Extract essential user data from form data
+    // Extract essential user data from form data using form element types
     const extractedData = {
       email: null as string | null,
       password: null as string | null,
       fullName: null as string | null,
     };
 
-    // Look through form data to find email, password, and name
-    Object.entries(formData).forEach(([key, value]) => {
-      const stringValue = String(value);
+    console.log("Raw form data:", formData);
 
-      // Check if this looks like an email
-      if (
-        stringValue.includes("@") &&
-        stringValue.includes(".") &&
-        !extractedData.email
-      ) {
-        extractedData.email = stringValue;
-      }
+    // Get the form structure to understand field types
+    const { data: formStructure, error: formStructureError } = await supabase
+      .from("signup_forms")
+      .select("elements")
+      .eq("id", formId)
+      .single();
 
-      // Check if this looks like a password (not email, reasonable length)
-      if (
-        !stringValue.includes("@") &&
-        !stringValue.includes(".") &&
-        stringValue.length >= 6 &&
-        stringValue.length <= 50 &&
-        !extractedData.password
-      ) {
-        extractedData.password = stringValue;
-      }
+    if (formStructureError) {
+      console.error("Error getting form structure:", formStructureError);
+      return NextResponse.json(
+        { error: "Failed to get form structure" },
+        { status: 500 }
+      );
+    }
 
-      // Check if this looks like a name (not email, not password, reasonable length)
-      if (
-        !stringValue.includes("@") &&
-        !stringValue.includes(".") &&
-        stringValue.length >= 2 &&
-        stringValue.length <= 50 &&
-        !extractedData.fullName &&
-        stringValue !== extractedData.password
-      ) {
-        extractedData.fullName = stringValue;
+    if (!formStructure?.elements) {
+      console.error("No form elements found");
+      return NextResponse.json(
+        { error: "Form structure not found" },
+        { status: 400 }
+      );
+    }
+
+    const elements = formStructure.elements as any[];
+    console.log("Form elements:", elements);
+    
+    // Map form elements to form data using their types
+    elements.forEach((element) => {
+      const fieldValue = formData[element.id];
+      if (fieldValue) {
+        if (element.type === "email") {
+          extractedData.email = String(fieldValue);
+          console.log("Found email from form type:", extractedData.email);
+        } else if (element.type === "password") {
+          extractedData.password = String(fieldValue);
+          console.log("Found password from form type:", extractedData.password);
+        } else if (element.type === "full_name") {
+          extractedData.fullName = String(fieldValue);
+          console.log("Found name from form type:", extractedData.fullName);
+        }
       }
     });
 
@@ -99,6 +107,7 @@ export async function POST(request: NextRequest) {
     // Validate that we have the required data
     if (!extractedData.email || !extractedData.password) {
       console.error("Missing required user data:", extractedData);
+      console.error("Available form data:", formData);
       return NextResponse.json(
         { error: "Email and password are required" },
         { status: 400 }
