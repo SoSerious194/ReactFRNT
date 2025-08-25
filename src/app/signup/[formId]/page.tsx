@@ -158,7 +158,7 @@ export default function PublicSignupFormPage() {
       window.location.href = checkoutUrl;
     } catch (error) {
       console.error("Error processing payment:", error);
-      alert("Failed to process payment. Please try again.");
+      alert(error);
     } finally {
       setSubmitting(false);
       setProcessingPayment(false);
