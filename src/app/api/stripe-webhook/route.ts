@@ -59,6 +59,11 @@ export async function POST(request: NextRequest) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+    // Test database connection and permissions
+    console.log("=== DATABASE CONNECTION TEST ===");
+    console.log("Supabase URL:", supabaseUrl);
+    console.log("Service key configured:", !!supabaseServiceKey);
+
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error("Missing Supabase configuration");
       return NextResponse.json(
@@ -155,12 +160,35 @@ export async function POST(request: NextRequest) {
         console.log("Checking if user already exists in webhook:", email);
         const { data: existingUser, error: userCheckError } = await supabase
           .from("users")
-          .select("id, email")
+          .select("id, email, role, coach")
           .eq("email", email)
           .single();
 
         if (existingUser) {
-          console.log("User already exists, skipping creation:", email);
+          console.log("User already exists:", existingUser);
+
+          // Check if role and coach are missing and update them
+          if (!existingUser.role || !existingUser.coach) {
+            console.log("User exists but missing role/coach, updating...");
+            const { error: updateError } = await supabase
+              .from("users")
+              .update({
+                role: "client",
+                coach: coachId,
+              })
+              .eq("id", existingUser.id);
+
+            if (updateError) {
+              console.error("Error updating existing user:", updateError);
+            } else {
+              console.log(
+                "Successfully updated existing user with role and coach"
+              );
+            }
+          } else {
+            console.log("User already has role and coach, skipping update");
+          }
+
           return NextResponse.json({ received: true });
         }
 
@@ -243,26 +271,63 @@ export async function POST(request: NextRequest) {
             hint: userError.hint,
           });
 
-          // Update form submission with error note
-          await supabase
-            .from("signup_form_submissions")
-            .update({
-              notes: `User data save failed: ${userError.message} (Code: ${userError.code})`,
-            })
-            .eq("stripe_session_id", session.id);
+          // If it's a duplicate key error, try to update the existing user
+          if (userError.code === "23505") {
+            console.log(
+              "User already exists in users table, attempting to update..."
+            );
+            const { error: updateError } = await supabase
+              .from("users")
+              .update({
+                email,
+                full_name: fullName,
+                role: "client",
+                coach: coachId,
+                created_at: new Date().toISOString(),
+              })
+              .eq("id", userId);
+
+            if (updateError) {
+              console.error(
+                "Error updating existing user in users table:",
+                updateError
+              );
+              // Update form submission with error note
+              await supabase
+                .from("signup_form_submissions")
+                .update({
+                  notes: `User data update failed: ${updateError.message} (Code: ${updateError.code})`,
+                })
+                .eq("stripe_session_id", session.id);
+            } else {
+              console.log("Successfully updated existing user in users table");
+            }
+          } else {
+            // Update form submission with error note for other errors
+            await supabase
+              .from("signup_form_submissions")
+              .update({
+                notes: `User data save failed: ${userError.message} (Code: ${userError.code})`,
+              })
+              .eq("stripe_session_id", session.id);
+          }
         } else {
           console.log("Basic user data saved successfully to users table");
           console.log("Inserted user data:", insertedUser);
 
           // Now try to update with role and coach
           console.log("Attempting to update user with role and coach...");
-          const { error: updateError } = await supabase
+          console.log("Update data:", { role: "client", coach: coachId });
+          console.log("User ID to update:", userId);
+
+          const { data: updateResult, error: updateError } = await supabase
             .from("users")
             .update({
               role: "client",
               coach: coachId,
             })
-            .eq("id", userId);
+            .eq("id", userId)
+            .select();
 
           if (updateError) {
             console.error("Error updating user role/coach:", updateError);
@@ -274,6 +339,7 @@ export async function POST(request: NextRequest) {
             });
           } else {
             console.log("Successfully updated user role and coach");
+            console.log("Update result:", updateResult);
 
             // Verify the final user data
             const { data: finalUser, error: verifyError } = await supabase
@@ -286,6 +352,19 @@ export async function POST(request: NextRequest) {
               console.error("Error verifying final user data:", verifyError);
             } else {
               console.log("Final user data in database:", finalUser);
+
+              // Check if role and coach are actually saved
+              if (!finalUser.role) {
+                console.error("❌ ROLE IS STILL MISSING after update!");
+              } else {
+                console.log("✅ Role saved successfully:", finalUser.role);
+              }
+
+              if (!finalUser.coach) {
+                console.error("❌ COACH IS STILL MISSING after update!");
+              } else {
+                console.log("✅ Coach saved successfully:", finalUser.coach);
+              }
             }
           }
         }
