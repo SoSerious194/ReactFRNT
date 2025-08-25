@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { HeaderSection } from "@/components/HeaderSection";
+import { ConditionalHeader } from "@/components/ConditionalHeader";
 import { ToastProvider } from "@/components/ui/toast";
 
 const geistSans = Geist({
@@ -30,7 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ToastProvider>
-          <HeaderSection />
+          <ConditionalHeader />
           {children}
         </ToastProvider>
       </body>

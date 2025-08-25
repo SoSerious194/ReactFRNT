@@ -1,31 +1,48 @@
-'use client';
-import { usePathname } from 'next/navigation';
-import { navConfig } from '@/lib/navConfig';
-import { BellIcon } from 'lucide-react';
-import React from 'react';
-import { Avatar, AvatarImage } from './ui/avatar';
+"use client";
+import { usePathname, useRouter } from "next/navigation";
+import { navConfig } from "@/lib/navConfig";
+import { BellIcon, LogOut } from "lucide-react";
+import React from "react";
+import { Avatar, AvatarImage } from "./ui/avatar";
+import { Button } from "./ui/button";
+import { createClient } from "@/utils/supabase/client";
 
 const pathToMainKey: Record<string, string> = {
-  'program-library': 'training-hub',
-  'workout-library': 'training-hub',
-  'exercise-library': 'training-hub',
-  'video-on-demand': 'training-hub',
-  'clients-groups': 'clients-groups',
+  "program-library": "training-hub",
+  "workout-library": "training-hub",
+  "exercise-library": "training-hub",
+  "video-on-demand": "training-hub",
+  "clients-groups": "clients-groups",
   // add more mappings as needed
 };
 
 function getActiveSections(pathname: string) {
-  const segments = pathname.split('/').filter(Boolean);
-  const rawKey = segments[0] || 'dashboard';
+  const segments = pathname.split("/").filter(Boolean);
+  const rawKey = segments[0] || "dashboard";
   const mainKey = pathToMainKey[rawKey] || rawKey;
-  const subKey = '/' + segments.join('/');
+  const subKey = "/" + segments.join("/");
   return { mainKey, subKey };
 }
 
 export const HeaderSection: React.FC = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const { mainKey, subKey } = getActiveSections(pathname);
   const currentNav = navConfig[mainKey as keyof typeof navConfig];
+  const supabase = createClient();
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Error logging out:", error);
+      } else {
+        router.push("/login");
+      }
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
 
   return (
     <header className="w-full border-b border-solid">
@@ -42,7 +59,9 @@ export const HeaderSection: React.FC = () => {
                   src="https://c.animaapp.com/mbqrzacsv2XpmH/img/frame-11.svg"
                 />
               </div>
-              <span className="ml-3 font-bold text-xl text-gray-900">PTFlow</span>
+              <span className="ml-3 font-bold text-xl text-gray-900">
+                PTFlow
+              </span>
             </div>
 
             {/* Main nav links */}
@@ -52,7 +71,7 @@ export const HeaderSection: React.FC = () => {
                   key={key}
                   href={`/${key}`}
                   className={`font-semibold text-lg ${
-                    key === mainKey ? 'text-green-600' : 'text-black'
+                    key === mainKey ? "text-green-600" : "text-black"
                   }`}
                 >
                   {item.label}
@@ -61,7 +80,7 @@ export const HeaderSection: React.FC = () => {
             </nav>
           </div>
 
-          {/* Bell + Avatar */}
+          {/* Bell + Avatar + Logout */}
           <div className="flex items-center space-x-4">
             <div className="relative">
               <BellIcon className="h-[18px] w-[15.75px] text-gray-700" />
@@ -73,6 +92,15 @@ export const HeaderSection: React.FC = () => {
                 alt="User avatar"
               />
             </Avatar>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
       </div>
@@ -83,12 +111,14 @@ export const HeaderSection: React.FC = () => {
           <div className="mx-6 h-[34px] my-[13px]">
             <nav className="flex space-x-8">
               {currentNav.subnav.map((item) => {
-                const href = mainKey === 'training-hub' 
-                  ? `/training-hub${item.href}`
-                  : item.href;
-                const isActive = mainKey === 'training-hub'
-                  ? `/training-hub${item.href}` === pathname
-                  : item.href === pathname;
+                const href =
+                  mainKey === "training-hub"
+                    ? `/training-hub${item.href}`
+                    : item.href;
+                const isActive =
+                  mainKey === "training-hub"
+                    ? `/training-hub${item.href}` === pathname
+                    : item.href === pathname;
 
                 return (
                   <a
@@ -96,8 +126,8 @@ export const HeaderSection: React.FC = () => {
                     href={href}
                     className={`font-medium text-base ${
                       isActive
-                        ? 'text-green-700 border-b-2 border-green-500 pb-2'
-                        : 'text-gray-600'
+                        ? "text-green-700 border-b-2 border-green-500 pb-2"
+                        : "text-gray-600"
                     }`}
                   >
                     {item.label}

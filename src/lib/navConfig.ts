@@ -28,6 +28,10 @@ export const navConfig = {
     label: "Inbox",
     subnav: [],
   },
+  "onboard-users": {
+    label: "Onboard Users",
+    subnav: [],
+  },
   "ai-flows": {
     label: "AI Flows",
     subnav: [],

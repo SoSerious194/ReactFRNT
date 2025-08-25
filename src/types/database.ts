@@ -7,13 +7,222 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
   }
   public: {
     Tables: {
+      ai_generated_messages: {
+        Row: {
+          client_id: string
+          coach_id: string
+          content: string
+          context_data: Json | null
+          created_at: string | null
+          delivery_status: string | null
+          event_type: string | null
+          id: string
+          message_type: string | null
+          sent_at: string | null
+          stream_message_id: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          coach_id: string
+          content: string
+          context_data?: Json | null
+          created_at?: string | null
+          delivery_status?: string | null
+          event_type?: string | null
+          id?: string
+          message_type?: string | null
+          sent_at?: string | null
+          stream_message_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          coach_id?: string
+          content?: string
+          context_data?: Json | null
+          created_at?: string | null
+          delivery_status?: string | null
+          event_type?: string | null
+          id?: string
+          message_type?: string | null
+          sent_at?: string | null
+          stream_message_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_generated_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "ai_generated_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generated_messages_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "ai_generated_messages_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_message_events: {
+        Row: {
+          ai_message_id: string | null
+          client_id: string
+          coach_id: string
+          created_at: string | null
+          error_message: string | null
+          event_data: Json
+          event_hash: string
+          event_type: string
+          id: string
+          message_sent_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_message_id?: string | null
+          client_id: string
+          coach_id: string
+          created_at?: string | null
+          error_message?: string | null
+          event_data: Json
+          event_hash: string
+          event_type: string
+          id?: string
+          message_sent_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_message_id?: string | null
+          client_id?: string
+          coach_id?: string
+          created_at?: string | null
+          error_message?: string | null
+          event_data?: Json
+          event_hash?: string
+          event_type?: string
+          id?: string
+          message_sent_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_message_events_ai_message_id_fkey"
+            columns: ["ai_message_id"]
+            isOneToOne: false
+            referencedRelation: "ai_generated_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_message_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "ai_message_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_message_events_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "ai_message_events_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_message_settings: {
+        Row: {
+          ai_tone: string | null
+          coach_id: string
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          max_messages_per_week: number | null
+          message_types: Json | null
+          personalization_level: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_tone?: string | null
+          coach_id: string
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_messages_per_week?: number | null
+          message_types?: Json | null
+          personalization_level?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_tone?: string | null
+          coach_id?: string
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_messages_per_week?: number | null
+          message_types?: Json | null
+          personalization_level?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_message_settings_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "ai_message_settings_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_meal_plans: {
         Row: {
           assigned_at: string | null
@@ -218,12 +427,23 @@ export type Database = {
           client_id: string
           created_at: string | null
           day: number
+          effort_value: string | null
           exercise_id: string
+          exercise_set_id: string | null
           id: string
+          meta: Json | null
           notes: string | null
+          performed_duration_seconds: number | null
+          performed_load_display: string | null
+          performed_load_unit: string | null
+          performed_load_value: number | null
+          performed_qty: number | null
+          performed_qty_max: number | null
+          performed_qty_min: number | null
           program_id: string
           reps: number | null
           set_number: number
+          units: string | null
           weight: number | null
           workout_id: string
         }
@@ -231,12 +451,23 @@ export type Database = {
           client_id: string
           created_at?: string | null
           day: number
+          effort_value?: string | null
           exercise_id: string
+          exercise_set_id?: string | null
           id?: string
+          meta?: Json | null
           notes?: string | null
+          performed_duration_seconds?: number | null
+          performed_load_display?: string | null
+          performed_load_unit?: string | null
+          performed_load_value?: number | null
+          performed_qty?: number | null
+          performed_qty_max?: number | null
+          performed_qty_min?: number | null
           program_id: string
           reps?: number | null
           set_number: number
+          units?: string | null
           weight?: number | null
           workout_id: string
         }
@@ -244,12 +475,23 @@ export type Database = {
           client_id?: string
           created_at?: string | null
           day?: number
+          effort_value?: string | null
           exercise_id?: string
+          exercise_set_id?: string | null
           id?: string
+          meta?: Json | null
           notes?: string | null
+          performed_duration_seconds?: number | null
+          performed_load_display?: string | null
+          performed_load_unit?: string | null
+          performed_load_value?: number | null
+          performed_qty?: number | null
+          performed_qty_max?: number | null
+          performed_qty_min?: number | null
           program_id?: string
           reps?: number | null
           set_number?: number
+          units?: string | null
           weight?: number | null
           workout_id?: string
         }
@@ -274,6 +516,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "exercise_library"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "completed_exercise_logs_exercise_set_id_fkey"
+            columns: ["exercise_set_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "completed_exercise_logs_exercise_set_id_fkey"
+            columns: ["exercise_set_id"]
+            isOneToOne: false
+            referencedRelation: "full_program_structure"
+            referencedColumns: ["exercise_set_id"]
           },
           {
             foreignKeyName: "completed_exercise_logs_program_id_fkey"
@@ -644,38 +900,80 @@ export type Database = {
       }
       exercise_sets: {
         Row: {
+          drop_stage_index: number | null
+          duration_seconds: number | null
+          effort_value: string | null
           exercise_id: string | null
           exercise_name: string | null
+          exercise_order: number
           id: string
+          load_display: string | null
+          load_unit: string | null
+          load_value: number | null
+          meta: Json | null
           notes: string | null
+          qty: number | null
+          qty_display: string | null
+          qty_max: number | null
+          qty_min: number | null
           reps: number | null
           rest_seconds: number | null
+          set_group: string | null
           set_number: number
           set_type: string | null
+          units: string | null
           weight: string | null
           workout_block_id: string | null
         }
         Insert: {
+          drop_stage_index?: number | null
+          duration_seconds?: number | null
+          effort_value?: string | null
           exercise_id?: string | null
           exercise_name?: string | null
+          exercise_order?: number
           id?: string
+          load_display?: string | null
+          load_unit?: string | null
+          load_value?: number | null
+          meta?: Json | null
           notes?: string | null
+          qty?: number | null
+          qty_display?: string | null
+          qty_max?: number | null
+          qty_min?: number | null
           reps?: number | null
           rest_seconds?: number | null
+          set_group?: string | null
           set_number: number
           set_type?: string | null
+          units?: string | null
           weight?: string | null
           workout_block_id?: string | null
         }
         Update: {
+          drop_stage_index?: number | null
+          duration_seconds?: number | null
+          effort_value?: string | null
           exercise_id?: string | null
           exercise_name?: string | null
+          exercise_order?: number
           id?: string
+          load_display?: string | null
+          load_unit?: string | null
+          load_value?: number | null
+          meta?: Json | null
           notes?: string | null
+          qty?: number | null
+          qty_display?: string | null
+          qty_max?: number | null
+          qty_min?: number | null
           reps?: number | null
           rest_seconds?: number | null
+          set_group?: string | null
           set_number?: number
           set_type?: string | null
+          units?: string | null
           weight?: string | null
           workout_block_id?: string | null
         }
@@ -1785,6 +2083,139 @@ export type Database = {
           },
         ]
       }
+      signup_form_submissions: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          form_data: Json
+          form_id: string
+          id: string
+          notes: string | null
+          status: string | null
+          submitted_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          form_data: Json
+          form_id: string
+          id?: string
+          notes?: string | null
+          status?: string | null
+          submitted_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          form_data?: Json
+          form_id?: string
+          id?: string
+          notes?: string | null
+          status?: string | null
+          submitted_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signup_form_submissions_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "signup_form_submissions_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signup_form_submissions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "signup_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signup_forms: {
+        Row: {
+          coach_id: string
+          created_at: string | null
+          description: string | null
+          elements: Json
+          id: string
+          is_active: boolean | null
+          price: number | null
+          pricing_type: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string | null
+          description?: string | null
+          elements?: Json
+          id?: string
+          is_active?: boolean | null
+          price?: number | null
+          pricing_type?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string | null
+          description?: string | null
+          elements?: Json
+          id?: string
+          is_active?: boolean | null
+          price?: number | null
+          pricing_type?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signup_forms_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "signup_forms_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staging_exercises: {
+        Row: {
+          is_active: boolean | null
+          is_global: boolean | null
+          name: string | null
+          video_url_2: string | null
+        }
+        Insert: {
+          is_active?: boolean | null
+          is_global?: boolean | null
+          name?: string | null
+          video_url_2?: string | null
+        }
+        Update: {
+          is_active?: boolean | null
+          is_global?: boolean | null
+          name?: string | null
+          video_url_2?: string | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -2339,14 +2770,14 @@ export type Database = {
     Functions: {
       calculate_next_send_time: {
         Args: {
-          schedule_type: string
           frequency_config: Json
           input_time: string
+          schedule_type: string
         }
         Returns: string
       }
       clear_day: {
-        Args: { day: string; client_id: string }
+        Args: { client_id: string; day: string }
         Returns: undefined
       }
       create_full_workout: {
@@ -2358,33 +2789,33 @@ export type Database = {
         Returns: Json
       }
       get_client_schedule: {
-        Args: { client: string; start: string; days: number }
+        Args: { client: string; days: number; start: string }
         Returns: {
           date: string
-          workout_id: string
-          workout_name: string
           is_rest_day: boolean
           notes: string
+          workout_id: string
+          workout_name: string
         }[]
       }
       get_current_program_day: {
         Args: { client_uuid: string }
         Returns: {
-          program_id: string
-          workout_id: string
           day: number
           is_rest_day: boolean
+          program_id: string
+          workout_id: string
           workout_name: string
         }[]
       }
       get_day_workout: {
         Args: { client_uuid: string; target_day: number }
         Returns: {
+          day: number
           program_id: string
           workout_id: string
           workout_name: string
           workout_notes: string
-          day: number
         }[]
       }
       get_day_workouts: {
@@ -2400,15 +2831,15 @@ export type Database = {
         Returns: string
       }
       get_max_weight: {
-        Args: { p_exercise_name: string; p_client_uuid: string }
+        Args: { p_client_uuid: string; p_exercise_name: string }
         Returns: {
           client_name: string
-          queried_exercise_name: string
           max_weight: number
+          queried_exercise_name: string
         }[]
       }
       get_max_weight_for_user: {
-        Args: { exercise_name_input: string; client_name_input: string }
+        Args: { client_name_input: string; exercise_name_input: string }
         Returns: {
           client_name: string
           exercise_name: string
@@ -2424,13 +2855,23 @@ export type Database = {
         Returns: {
           block_name: string
           block_type: string
-          order_index: number
-          set_number: number
-          set_type: string
-          reps: number
+          duration_seconds: number
           exercise_id: string
           exercise_name: string
+          exercise_order: number
           muscles_trained: string
+          notes: string
+          order_index: number
+          qty: number
+          qty_display: string
+          qty_max: number
+          qty_min: number
+          reps: number
+          rest_seconds: number
+          set_number: number
+          set_type: string
+          units: string
+          weight: string
         }[]
       }
       maintain_12_week_schedule: {
@@ -2438,7 +2879,7 @@ export type Database = {
         Returns: undefined
       }
       move_day: {
-        Args: { from_date: string; to_date: string; client_id: string }
+        Args: { client_id: string; from_date: string; to_date: string }
         Returns: undefined
       }
       populate_4_week_schedule: {
@@ -2449,16 +2890,16 @@ export type Database = {
       }
       send_message: {
         Args: {
-          p_conversation_id: string
           p_content: string
-          p_message_type?: Database["public"]["Enums"]["message_type"]
-          p_file_path?: string
+          p_conversation_id: string
           p_file_name?: string
+          p_file_path?: string
+          p_message_type?: Database["public"]["Enums"]["message_type"]
         }
         Returns: string
       }
       swap_days: {
-        Args: { date1: string; date2: string; client_id: string }
+        Args: { client_id: string; date1: string; date2: string }
         Returns: undefined
       }
     }
