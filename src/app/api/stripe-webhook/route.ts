@@ -218,20 +218,19 @@ export async function POST(request: NextRequest) {
 
         // Save user data to users table
         console.log("Saving user data to users table...");
-        const userDataToInsert = {
+        // First, try inserting basic user data
+        const basicUserData = {
           id: userId,
           email,
           full_name: fullName,
-          coach: coachId,
-          role: "client",
           created_at: new Date().toISOString(),
         };
 
-        console.log("User data to insert:", userDataToInsert);
+        console.log("Inserting basic user data:", basicUserData);
 
         const { data: insertedUser, error: userError } = await supabase
           .from("users")
-          .insert(userDataToInsert)
+          .insert(basicUserData)
           .select()
           .single();
 
@@ -252,37 +251,41 @@ export async function POST(request: NextRequest) {
             })
             .eq("stripe_session_id", session.id);
         } else {
-          console.log("User data saved successfully to users table");
+          console.log("Basic user data saved successfully to users table");
           console.log("Inserted user data:", insertedUser);
 
-          // Verify the data was actually saved by fetching it back
-          const { data: verifyUser, error: verifyError } = await supabase
+          // Now try to update with role and coach
+          console.log("Attempting to update user with role and coach...");
+          const { error: updateError } = await supabase
             .from("users")
-            .select("id, email, full_name, coach, role, created_at")
-            .eq("id", userId)
-            .single();
+            .update({
+              role: "client",
+              coach: coachId,
+            })
+            .eq("id", userId);
 
-          if (verifyError) {
-            console.error("Error verifying user data:", verifyError);
+          if (updateError) {
+            console.error("Error updating user role/coach:", updateError);
+            console.error("Update error details:", {
+              message: updateError.message,
+              code: updateError.code,
+              details: updateError.details,
+              hint: updateError.hint,
+            });
           } else {
-            console.log("Verified user data in database:", verifyUser);
+            console.log("Successfully updated user role and coach");
 
-            // If role or coach is missing, try to update them
-            if (!verifyUser.role || !verifyUser.coach) {
-              console.log("Role or coach missing, attempting to update...");
-              const { error: updateError } = await supabase
-                .from("users")
-                .update({
-                  role: "client",
-                  coach: coachId,
-                })
-                .eq("id", userId);
+            // Verify the final user data
+            const { data: finalUser, error: verifyError } = await supabase
+              .from("users")
+              .select("id, email, full_name, coach, role, created_at")
+              .eq("id", userId)
+              .single();
 
-              if (updateError) {
-                console.error("Error updating user role/coach:", updateError);
-              } else {
-                console.log("Successfully updated user role and coach");
-              }
+            if (verifyError) {
+              console.error("Error verifying final user data:", verifyError);
+            } else {
+              console.log("Final user data in database:", finalUser);
             }
           }
         }
