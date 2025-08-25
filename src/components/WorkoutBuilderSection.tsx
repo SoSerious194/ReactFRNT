@@ -45,8 +45,6 @@ type WorkoutInsert = TablesInsert<"workouts">;
 type WorkoutBlockInsert = TablesInsert<"workout_blocks">;
 type ExerciseSetInsert = TablesInsert<"exercise_sets">;
 type WorkoutUpdate = TablesUpdate<"workouts">;
-type WorkoutBlockUpdate = TablesUpdate<"workout_blocks">;
-type ExerciseSetUpdate = TablesUpdate<"exercise_sets">;
 
 // Supabase client
 const supabase = createClient();
@@ -434,7 +432,6 @@ export default function WorkoutBuilderSection({
   editWorkoutId?: string;
   duplicateWorkoutId?: string;
 }) {
-  const router = useRouter();
   const { user } = useAuth();
   const { addToast } = useToast();
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -510,6 +507,9 @@ export default function WorkoutBuilderSection({
   const [showTips, setShowTips] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
+
+  // State for workout preview
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   // Workout state
   const [currentWorkout, setCurrentWorkout] = useState<Workout | null>(null);
@@ -2138,6 +2138,29 @@ export default function WorkoutBuilderSection({
       const success = await saveWorkoutStructure(workoutId);
 
       if (success) {
+        // Generate and upload workout preview
+        const previewUrl = await generateWorkoutPreview(workoutId);
+
+        if (previewUrl) {
+          console.log("Generated preview URL:", previewUrl);
+
+          // Update the workout with the preview URL
+          const { error: updateError } = await supabase
+            .from("workouts")
+            .update({ cover_photo: previewUrl })
+            .eq("id", workoutId);
+
+          if (updateError) {
+            console.error("Error updating cover photo:", updateError);
+          } else {
+            console.log("Successfully updated cover photo in database");
+            setWorkoutCoverPhoto(previewUrl);
+            setPreviewImageUrl(previewUrl);
+          }
+        } else {
+          console.log("No preview URL generated");
+        }
+
         const message = editWorkoutId
           ? "Workout updated successfully!"
           : duplicateWorkoutId
@@ -2415,7 +2438,7 @@ export default function WorkoutBuilderSection({
                 }
               } else {
                 // This should never happen due to the filter above, but just in case
-        console.error(
+                console.error(
                   `No mapping found for exercise: ${exercise.name}`
                 );
                 // Create a fallback exercise
@@ -2668,6 +2691,237 @@ export default function WorkoutBuilderSection({
       stopListening();
     } else {
       startListening();
+    }
+  };
+
+  // Handle custom image upload
+  const handleCustomImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      addToast({
+        type: "error",
+        message: "Please select a valid image file.",
+        duration: 4000,
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      addToast({
+        type: "error",
+        message: "Image file size must be less than 5MB.",
+        duration: 4000,
+      });
+      return;
+    }
+
+    try {
+      // Create form data for upload
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("workoutId", currentWorkout?.id || "temp");
+
+      // Upload the custom image
+      const response = await fetch("/api/upload-workout-preview", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload image");
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.publicUrl) {
+        // Update the workout with the custom image
+        setPreviewImageUrl(data.publicUrl);
+        setWorkoutCoverPhoto(data.publicUrl);
+
+        if (currentWorkout) {
+          setCurrentWorkout({
+            ...currentWorkout,
+            cover_photo: data.publicUrl,
+          });
+        }
+
+        addToast({
+          type: "success",
+          message: "Custom image uploaded successfully!",
+          duration: 3000,
+        });
+      } else {
+        throw new Error("Upload response missing URL");
+      }
+    } catch (error) {
+      console.error("Error uploading custom image:", error);
+      addToast({
+        type: "error",
+        message: "Failed to upload image. Please try again.",
+        duration: 4000,
+      });
+    }
+  };
+
+  // Generate workout preview image and upload to GCS
+  const generateWorkoutPreview = async (
+    workoutId: string
+  ): Promise<string | null> => {
+    try {
+      // Create a canvas element to generate the preview
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = 800;
+      canvas.height = 400;
+
+      if (!ctx) {
+        throw new Error("Could not get canvas context");
+      }
+
+      // Load the static person image from public folder
+      const personImage = new Image();
+
+      await new Promise((resolve, reject) => {
+        personImage.onload = resolve;
+        personImage.onerror = reject;
+        personImage.src = "/workout-person.png";
+      });
+
+      // Draw the person image on the right side with proper aspect ratio
+      const aspectRatio = personImage.width / personImage.height;
+      let drawWidth = 400;
+      let drawHeight = 400;
+      let offsetX = 400;
+      let offsetY = 0;
+
+      if (aspectRatio > 1) {
+        // Image is wider than tall
+        drawHeight = 400 / aspectRatio;
+        offsetY = (400 - drawHeight) / 2;
+      } else {
+        // Image is taller than wide
+        drawWidth = 400 * aspectRatio;
+        offsetX = 400 + (400 - drawWidth) / 2;
+      }
+
+      ctx.drawImage(personImage, offsetX, offsetY, drawWidth, drawHeight);
+
+      // Draw white background on the left side
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, 400, 400);
+
+      // Draw the workout content on the left side - centered vertically
+      const centerY = 200; // Center of the 400px height
+
+      // Draw title banner - centered
+      ctx.fillStyle = "#87CEEB"; // Light blue banner
+      ctx.beginPath();
+      ctx.roundRect(40, centerY - 120, 320, 60, 25);
+      ctx.fill();
+
+      // Draw title text
+      ctx.fillStyle = "white";
+      ctx.font = "bold 20px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.fillText(workoutName || "WORKOUT NAME", 200, centerY - 85);
+
+      // Draw difficulty badge - centered
+      ctx.fillStyle = "#FF0000";
+      ctx.beginPath();
+      ctx.roundRect(150, centerY - 40, 100, 35, 17.5);
+      ctx.fill();
+
+      ctx.fillStyle = "white";
+      ctx.font = "bold 16px Georgia, serif";
+      ctx.fillText(
+        workoutDifficulty === "Beginner"
+          ? "BEGINNER"
+          : workoutDifficulty === "Intermediate"
+          ? "INT./ADV"
+          : "ADVANCED",
+        200,
+        centerY - 18
+      );
+
+      // Draw workout details - centered
+      ctx.fillStyle = "black";
+      ctx.font = "bold 16px Georgia, serif";
+      ctx.textAlign = "left";
+
+      let yPos = centerY + 20;
+      ctx.fillText(
+        `-${sessions.length} WORKOUT${sessions.length !== 1 ? "S" : ""}/WEEK`,
+        60,
+        yPos
+      );
+      yPos += 25;
+
+      const totalExercises =
+        workoutExercises.length +
+        sessions.reduce((acc, session) => acc + session.exercises.length, 0);
+      ctx.fillText(
+        `-${totalExercises} EXERCISE${totalExercises !== 1 ? "S" : ""}`,
+        60,
+        yPos
+      );
+      yPos += 25;
+
+      if (formatWorkoutDuration() !== "0 minutes") {
+        ctx.fillText(`-${formatWorkoutDuration()} DURATION`, 60, yPos);
+        yPos += 25;
+      }
+
+      if (workoutEquipment.length > 0) {
+        const equipmentText =
+          workoutEquipment.slice(0, 2).join(", ").toUpperCase() +
+          (workoutEquipment.length > 2 ? "..." : "");
+        ctx.fillText(`-${equipmentText}`, 60, yPos);
+      }
+
+      // Convert canvas to blob for upload
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+        }, "image/png");
+      });
+
+      // Create form data for upload
+      const formData = new FormData();
+      formData.append("file", blob, `workout-preview-${workoutId}.png`);
+      formData.append("workoutId", workoutId);
+
+      // Upload to your upload endpoint
+      console.log("Uploading preview to GCS...");
+      const response = await fetch("/api/upload-workout-preview", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Upload failed:", response.status, errorText);
+        throw new Error(`Failed to upload preview: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Upload response:", data);
+
+      if (data.success && data.publicUrl) {
+        console.log("Successfully uploaded preview to:", data.publicUrl);
+        return data.publicUrl;
+      } else {
+        console.error("Upload response missing publicUrl:", data);
+        return null;
+      }
+    } catch (error) {
+      console.error("Error generating preview:", error);
+      return null;
     }
   };
 
@@ -2933,7 +3187,7 @@ export default function WorkoutBuilderSection({
           {/* Expandable workout details */}
           {isWorkoutDetailsExpanded && (
             <div className="p-6 bg-gray-50">
-              <div className="max-w-4xl mx-auto">
+              <div className="max-w-6xl mx-auto">
                 {loadingWorkout ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="flex items-center space-x-3">
@@ -2944,213 +3198,454 @@ export default function WorkoutBuilderSection({
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Left column */}
-                    <div className="space-y-6">
-                      {/* Difficulty */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Difficulty Level
-                        </label>
-                        <select
-                          value={workoutDifficulty}
-                          onChange={(e) => setWorkoutDifficulty(e.target.value)}
-                          className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        >
-                          <option value="Beginner">Beginner</option>
-                          <option value="Intermediate">Intermediate</option>
-                          <option value="Advanced">Advanced</option>
-                        </select>
+                  <div className="space-y-8">
+                    {/* Workout Preview Section */}
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Workout Preview
+                        </h3>
                       </div>
 
-                      {/* Equipment */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Equipment Required
-                        </label>
-                        <div className="relative equipment-dropdown">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setOpenDropdown(
-                                openDropdown === "equipment"
-                                  ? null
-                                  : "equipment"
-                              )
-                            }
-                            className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-left flex items-center justify-between transition-colors"
-                          >
-                            <span
-                              className={
-                                workoutEquipment.length === 0
-                                  ? "text-gray-500"
-                                  : "text-gray-900"
-                              }
+                      {/* Preview Image */}
+                      <div className="flex justify-center">
+                        {previewImageUrl ? (
+                          <div className="relative w-full max-w-2xl">
+                            <img
+                              src={previewImageUrl}
+                              alt="Generated workout preview"
+                              className="w-full h-auto rounded-lg shadow-lg border border-gray-300"
+                            />
+                            <button
+                              onClick={() => setPreviewImageUrl(null)}
+                              className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors"
                             >
-                              {workoutEquipment.length === 0
-                                ? "Select equipment..."
-                                : `${workoutEquipment.length} selected`}
-                            </span>
-                            <svg
-                              className="w-4 h-4 ml-2 text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
-                          </button>
-                          {openDropdown === "equipment" && (
-                            <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                              <div className="p-2">
-                                {[
-                                  "Dumbbells",
-                                  "Barbell",
-                                  "Kettlebell",
-                                  "Resistance Bands",
-                                  "Pull-up Bar",
-                                  "Bench",
-                                  "Squat Rack",
-                                  "Cable Machine",
-                                  "Treadmill",
-                                  "Elliptical",
-                                  "Rowing Machine",
-                                  "Medicine Ball",
-                                  "Foam Roller",
-                                  "Yoga Mat",
-                                  "None",
-                                ].map((equipment) => (
-                                  <label
-                                    key={equipment}
-                                    className="flex items-center p-3 hover:bg-gray-50 cursor-pointer rounded-md transition-colors"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={workoutEquipment.includes(
-                                        equipment
-                                      )}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setWorkoutEquipment([
-                                            ...workoutEquipment,
-                                            equipment,
-                                          ]);
-                                        } else {
-                                          setWorkoutEquipment(
-                                            workoutEquipment.filter(
-                                              (item) => item !== equipment
-                                            )
-                                          );
-                                        }
-                                      }}
-                                      className="mr-3"
-                                    />
-                                    <span className="text-sm text-gray-700">
-                                      {equipment}
-                                    </span>
-                                  </label>
-                                ))}
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="relative w-full max-w-2xl h-96 bg-white border-2 border-gray-300 rounded-lg overflow-hidden shadow-lg">
+                            {/* Left side - Workout content - Match Canvas positioning exactly */}
+                            <div className="absolute left-0 top-0 w-1/2 h-full bg-white flex flex-col justify-center items-center px-6">
+                              {/* Title banner - positioned like Canvas */}
+                              <div
+                                className="bg-sky-300 text-white font-bold text-center py-4 px-8 rounded-3xl mb-8 shadow-md"
+                                style={{
+                                  fontSize: "18px",
+                                  fontFamily: "Georgia, serif",
+                                }}
+                              >
+                                {workoutName || "WORKOUT NAME"}
+                              </div>
+
+                              {/* Difficulty Badge - positioned like Canvas */}
+                              <div
+                                className="bg-red-500 text-white font-bold py-2 px-6 rounded-full mb-8 text-sm"
+                                style={{ fontFamily: "Georgia, serif" }}
+                              >
+                                {workoutDifficulty === "Beginner"
+                                  ? "BEGINNER"
+                                  : workoutDifficulty === "Intermediate"
+                                  ? "INT./ADV"
+                                  : "ADVANCED"}
+                              </div>
+
+                              {/* Workout details - positioned like Canvas */}
+                              <div
+                                className="text-left space-y-2 text-black font-bold"
+                                style={{
+                                  fontSize: "14px",
+                                  fontFamily: "Georgia, serif",
+                                }}
+                              >
+                                <div>
+                                  -{sessions.length} WORKOUT
+                                  {sessions.length !== 1 ? "S" : ""}/WEEK
+                                </div>
+                                <div>
+                                  -
+                                  {workoutExercises.length +
+                                    sessions.reduce(
+                                      (acc, session) =>
+                                        acc + session.exercises.length,
+                                      0
+                                    )}{" "}
+                                  EXERCISE
+                                  {workoutExercises.length +
+                                    sessions.reduce(
+                                      (acc, session) =>
+                                        acc + session.exercises.length,
+                                      0
+                                    ) !==
+                                  1
+                                    ? "S"
+                                    : ""}
+                                </div>
+                                {formatWorkoutDuration() !== "0 minutes" && (
+                                  <div>
+                                    -{formatWorkoutDuration().toUpperCase()}{" "}
+                                    DURATION
+                                  </div>
+                                )}
+                                {workoutEquipment.length > 0 && (
+                                  <div>
+                                    -
+                                    {workoutEquipment
+                                      .slice(0, 2)
+                                      .join(", ")
+                                      .toUpperCase()}
+                                    {workoutEquipment.length > 2 ? "..." : ""}
+                                  </div>
+                                )}
                               </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Cover Photo */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Cover Photo URL
-                        </label>
-                        <input
-                          type="url"
-                          value={workoutCoverPhoto || ""}
-                          onChange={(e) =>
-                            setWorkoutCoverPhoto(e.target.value || null)
-                          }
-                          placeholder="Enter image URL..."
-                          className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        />
-                        {workoutCoverPhoto && (
-                          <div className="mt-2">
-                            <img
-                              src={workoutCoverPhoto}
-                              alt="Workout cover preview"
-                              className="w-full h-24 object-cover rounded-lg border border-gray-300"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
+                            {/* Right side - Person image */}
+                            <div className="absolute right-0 top-0 w-1/2 h-full">
+                              <img
+                                src="/workout-person.png"
+                                alt="Person exercising"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
+                    </div>
 
-                      {/* Duration */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Workout Duration
-                        </label>
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-1">
-                            <select
-                              value={workoutDuration.hours}
-                              onChange={(e) =>
-                                setWorkoutDuration((prev) => ({
-                                  ...prev,
-                                  hours: parseInt(e.target.value),
-                                }))
+                    {/* Form Fields */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* Left column */}
+                      <div className="space-y-6">
+                        {/* Difficulty */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Difficulty Level
+                          </label>
+                          <select
+                            value={workoutDifficulty}
+                            onChange={(e) =>
+                              setWorkoutDifficulty(e.target.value)
+                            }
+                            className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          >
+                            <option value="Beginner">Beginner</option>
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Advanced">Advanced</option>
+                          </select>
+                        </div>
+
+                        {/* Equipment */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Equipment Required
+                          </label>
+                          <div className="relative equipment-dropdown">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenDropdown(
+                                  openDropdown === "equipment"
+                                    ? null
+                                    : "equipment"
+                                )
                               }
-                              className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                              className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-left flex items-center justify-between transition-colors"
                             >
-                              {Array.from({ length: 13 }, (_, i) => (
-                                <option key={i} value={i}>
-                                  {i} hour{i !== 1 ? "s" : ""}
-                                </option>
-                              ))}
-                            </select>
+                              <span
+                                className={
+                                  workoutEquipment.length === 0
+                                    ? "text-gray-500"
+                                    : "text-gray-900"
+                                }
+                              >
+                                {workoutEquipment.length === 0
+                                  ? "Select equipment..."
+                                  : `${workoutEquipment.length} selected`}
+                              </span>
+                              <svg
+                                className="w-4 h-4 ml-2 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </button>
+                            {openDropdown === "equipment" && (
+                              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                <div className="p-2">
+                                  {[
+                                    "Dumbbells",
+                                    "Barbell",
+                                    "Kettlebell",
+                                    "Resistance Bands",
+                                    "Pull-up Bar",
+                                    "Bench",
+                                    "Squat Rack",
+                                    "Cable Machine",
+                                    "Treadmill",
+                                    "Elliptical",
+                                    "Rowing Machine",
+                                    "Medicine Ball",
+                                    "Foam Roller",
+                                    "Yoga Mat",
+                                    "None",
+                                  ].map((equipment) => (
+                                    <label
+                                      key={equipment}
+                                      className="flex items-center p-3 hover:bg-gray-50 cursor-pointer rounded-md transition-colors"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={workoutEquipment.includes(
+                                          equipment
+                                        )}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setWorkoutEquipment([
+                                              ...workoutEquipment,
+                                              equipment,
+                                            ]);
+                                          } else {
+                                            setWorkoutEquipment(
+                                              workoutEquipment.filter(
+                                                (item) => item !== equipment
+                                              )
+                                            );
+                                          }
+                                        }}
+                                        className="mr-3"
+                                      />
+                                      <span className="text-sm text-gray-700">
+                                        {equipment}
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex-1">
-                            <select
-                              value={workoutDuration.minutes}
-                              onChange={(e) =>
-                                setWorkoutDuration((prev) => ({
-                                  ...prev,
-                                  minutes: parseInt(e.target.value),
-                                }))
-                              }
-                              className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            >
-                              {Array.from({ length: 60 }, (_, i) => (
-                                <option key={i} value={i}>
-                                  {i} minute{i !== 1 ? "s" : ""}
-                                </option>
-                              ))}
-                            </select>
+                        </div>
+
+                        {/* Cover Photo */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Cover Photo
+                          </label>
+                          <div className="space-y-3">
+                            {currentWorkout?.cover_photo || previewImageUrl ? (
+                              <div className="relative">
+                                <img
+                                  src={
+                                    currentWorkout?.cover_photo ||
+                                    previewImageUrl ||
+                                    ""
+                                  }
+                                  alt="Workout cover"
+                                  className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = "none";
+                                  }}
+                                />
+                                <button
+                                  onClick={() => {
+                                    // Clear the cover photo
+                                    if (currentWorkout) {
+                                      setCurrentWorkout({
+                                        ...currentWorkout,
+                                        cover_photo: null,
+                                      });
+                                    }
+                                    setPreviewImageUrl(null);
+                                    setWorkoutCoverPhoto(null);
+                                  }}
+                                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors shadow-md"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                                <svg
+                                  className="w-12 h-12 text-gray-400 mx-auto mb-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={1.5}
+                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                  />
+                                </svg>
+                                <p className="text-sm text-gray-500 mb-2">
+                                  No cover photo set
+                                </p>
+                                <p className="text-xs text-gray-400 mb-4">
+                                  A preview will be automatically generated when
+                                  you save the workout
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Action buttons */}
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleCustomImageUpload}
+                                className="hidden"
+                                id="cover-photo-upload"
+                              />
+                              <label
+                                htmlFor="cover-photo-upload"
+                                className="flex-1 px-4 py-2 text-sm bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer flex items-center justify-center space-x-2"
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                                  />
+                                </svg>
+                                <span>Upload Custom Image</span>
+                              </label>
+
+                              {(currentWorkout?.cover_photo ||
+                                previewImageUrl) && (
+                                <button
+                                  onClick={() => {
+                                    if (currentWorkout) {
+                                      setCurrentWorkout({
+                                        ...currentWorkout,
+                                        cover_photo: null,
+                                      });
+                                    }
+                                    setPreviewImageUrl(null);
+                                    setWorkoutCoverPhoto(null);
+                                  }}
+                                  className="flex-1 px-4 py-2 text-sm bg-red-50 border border-red-200 text-red-700 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center space-x-2"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                  <span>Remove Image</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Duration */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Workout Duration
+                          </label>
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-1">
+                              <select
+                                value={workoutDuration.hours}
+                                onChange={(e) =>
+                                  setWorkoutDuration((prev) => ({
+                                    ...prev,
+                                    hours: parseInt(e.target.value),
+                                  }))
+                                }
+                                className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                              >
+                                {Array.from({ length: 13 }, (_, i) => (
+                                  <option key={i} value={i}>
+                                    {i} hour{i !== 1 ? "s" : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex-1">
+                              <select
+                                value={workoutDuration.minutes}
+                                onChange={(e) =>
+                                  setWorkoutDuration((prev) => ({
+                                    ...prev,
+                                    minutes: parseInt(e.target.value),
+                                  }))
+                                }
+                                className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                              >
+                                {Array.from({ length: 60 }, (_, i) => (
+                                  <option key={i} value={i}>
+                                    {i} minute{i !== 1 ? "s" : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Right column */}
-                    <div className="space-y-6">
-                      {/* Description */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Workout Description
-                        </label>
-                        <textarea
-                          value={workoutDescription}
-                          onChange={(e) =>
-                            setWorkoutDescription(e.target.value)
-                          }
-                          placeholder="Enter workout description..."
-                          rows={8}
-                          className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
-                        />
+                      {/* Right column */}
+                      <div className="space-y-6">
+                        {/* Description */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Workout Description
+                          </label>
+                          <textarea
+                            value={workoutDescription}
+                            onChange={(e) =>
+                              setWorkoutDescription(e.target.value)
+                            }
+                            placeholder="Enter workout description..."
+                            rows={8}
+                            className="w-full text-sm border border-gray-300 rounded-lg px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

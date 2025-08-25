@@ -8,7 +8,7 @@ export default async function WorkoutLibraryPage() {
 
   const { data: workouts, error } = await supabase
     .from("workouts")
-    .select("id, name, difficulty, equipment, duration, lastModified")
+    .select("id, name, difficulty, equipment, duration, lastModified, cover_photo")
     .order("lastModified", { ascending: false });
 
   if (error) {

@@ -1,6 +1,7 @@
 "use client";
 import {
   CopyIcon,
+  ImageIcon,
   PencilIcon,
   PlusIcon,
   SearchIcon,
@@ -29,6 +30,7 @@ type Workout = {
   duration: string;
   equipment: string;
   lastModified: string;
+  cover_photo?: string | null;
 };
 
 export const WorkoutsSection = ({ workouts }: { workouts: Workout[] }) => {
@@ -228,8 +230,24 @@ export const WorkoutsSection = ({ workouts }: { workouts: Workout[] }) => {
                   key={workout.id}
                   className="border-t border-gray-200 bg-white"
                 >
-                  <TableCell className="py-[18px] pl-6 font-medium text-gray-900">
-                    {workout.name}
+                  <TableCell className="py-[18px] pl-6">
+                    <div className="flex items-center">
+                      {workout.cover_photo ? (
+                        <div
+                          className="w-12 h-12 rounded-lg bg-cover bg-center mr-4 border border-gray-200"
+                          style={{
+                            backgroundImage: `url(${workout.cover_photo})`,
+                          }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center mr-4">
+                          <ImageIcon className="w-4 h-4 text-gray-400" />
+                        </div>
+                      )}
+                      <span className="font-medium text-gray-900">
+                        {workout.name}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell className="py-[18px] pl-6">
                     <Badge
