@@ -81,8 +81,24 @@ export async function POST(request: NextRequest) {
 
         if (!coachId || !email || !password) {
           console.error("Missing required metadata for user creation");
+          console.error("Missing metadata details:", {
+            coachId: coachId ? "present" : "missing",
+            email: email ? "present" : "missing",
+            password: password ? "present" : "missing",
+            fullName: fullName ? "present" : "missing",
+            formId: formId ? "present" : "missing",
+          });
           return NextResponse.json(
-            { error: "Missing required metadata" },
+            {
+              error: "Missing required metadata",
+              details: {
+                coachId: !!coachId,
+                email: !!email,
+                password: !!password,
+                fullName: !!fullName,
+                formId: !!formId,
+              },
+            },
             { status: 400 }
           );
         }
@@ -104,6 +120,12 @@ export async function POST(request: NextRequest) {
 
         if (submissionError) {
           console.error("Error saving form submission:", submissionError);
+          console.error("Submission error details:", {
+            message: submissionError.message,
+            code: submissionError.code,
+            details: submissionError.details,
+            hint: submissionError.hint,
+          });
           // Continue with user creation even if submission save fails
         } else {
           console.log(
@@ -135,16 +157,31 @@ export async function POST(request: NextRequest) {
 
         if (authError) {
           console.error("Error creating auth user:", authError);
+          console.error("Auth error details:", {
+            message: authError.message,
+            status: authError.status,
+            name: authError.name,
+            stack: authError.stack,
+          });
+
           // Update form submission status to "failed" if user creation fails
           await supabase
             .from("signup_form_submissions")
             .update({
               status: "failed",
-              notes: `User creation failed: ${authError.message}`,
+              notes: `User creation failed: ${authError.message} (Status: ${authError.status})`,
             })
             .eq("stripe_session_id", session.id);
+
           return NextResponse.json(
-            { error: "Failed to create user" },
+            {
+              error: "Failed to create user",
+              details: {
+                message: authError.message,
+                status: authError.status,
+                name: authError.name,
+              },
+            },
             { status: 500 }
           );
         }
@@ -165,11 +202,18 @@ export async function POST(request: NextRequest) {
 
         if (userError) {
           console.error("Error saving user data:", userError);
+          console.error("User data error details:", {
+            message: userError.message,
+            code: userError.code,
+            details: userError.details,
+            hint: userError.hint,
+          });
+
           // Update form submission with error note
           await supabase
             .from("signup_form_submissions")
             .update({
-              notes: `User data save failed: ${userError.message}`,
+              notes: `User data save failed: ${userError.message} (Code: ${userError.code})`,
             })
             .eq("stripe_session_id", session.id);
         } else {
@@ -254,8 +298,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Error processing webhook:", error);
+    console.error("Webhook error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      name: error instanceof Error ? error.name : "Unknown",
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
-      { error: "Webhook processing failed" },
+      {
+        error: "Webhook processing failed",
+        details: {
+          message: error instanceof Error ? error.message : "Unknown error",
+          name: error instanceof Error ? error.name : "Unknown",
+        },
+      },
       { status: 500 }
     );
   }
