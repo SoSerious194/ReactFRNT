@@ -218,14 +218,22 @@ export async function POST(request: NextRequest) {
 
         // Save user data to users table
         console.log("Saving user data to users table...");
-        const { error: userError } = await supabase.from("users").insert({
+        const userDataToInsert = {
           id: userId,
           email,
           full_name: fullName,
           coach: coachId,
           role: "client",
           created_at: new Date().toISOString(),
-        });
+        };
+
+        console.log("User data to insert:", userDataToInsert);
+
+        const { data: insertedUser, error: userError } = await supabase
+          .from("users")
+          .insert(userDataToInsert)
+          .select()
+          .single();
 
         if (userError) {
           console.error("Error saving user data:", userError);
@@ -245,6 +253,38 @@ export async function POST(request: NextRequest) {
             .eq("stripe_session_id", session.id);
         } else {
           console.log("User data saved successfully to users table");
+          console.log("Inserted user data:", insertedUser);
+
+          // Verify the data was actually saved by fetching it back
+          const { data: verifyUser, error: verifyError } = await supabase
+            .from("users")
+            .select("id, email, full_name, coach, role, created_at")
+            .eq("id", userId)
+            .single();
+
+          if (verifyError) {
+            console.error("Error verifying user data:", verifyError);
+          } else {
+            console.log("Verified user data in database:", verifyUser);
+
+            // If role or coach is missing, try to update them
+            if (!verifyUser.role || !verifyUser.coach) {
+              console.log("Role or coach missing, attempting to update...");
+              const { error: updateError } = await supabase
+                .from("users")
+                .update({
+                  role: "client",
+                  coach: coachId,
+                })
+                .eq("id", userId);
+
+              if (updateError) {
+                console.error("Error updating user role/coach:", updateError);
+              } else {
+                console.log("Successfully updated user role and coach");
+              }
+            }
+          }
         }
 
         console.log(`Successfully created user ${userId} for form ${formId}`);
