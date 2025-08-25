@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 
 export async function POST(request: NextRequest) {
@@ -54,7 +54,25 @@ export async function POST(request: NextRequest) {
 
   try {
     console.log("Processing webhook event:", event.type);
-    const supabase = await createClient();
+
+    // Create Supabase client with service role key for admin operations
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Missing Supabase configuration");
+      return NextResponse.json(
+        { error: "Supabase configuration missing" },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Debug Supabase client configuration
+    console.log("Supabase client created successfully with service role key");
+    console.log("Supabase URL configured:", !!supabaseUrl);
+    console.log("Supabase service role key configured:", !!supabaseServiceKey);
 
     // Handle the event
     switch (event.type) {
@@ -153,6 +171,15 @@ export async function POST(request: NextRequest) {
             email,
             password,
             email_confirm: true,
+            user_metadata: {
+              full_name: fullName,
+              coach_id: coachId,
+              form_id: formId,
+            },
+            app_metadata: {
+              role: "client",
+              coach: coachId,
+            },
           });
 
         if (authError) {
