@@ -131,7 +131,19 @@ export default function PublicSignupFormPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create checkout session");
+        const errorMessage =
+          errorData.error || "Failed to create checkout session";
+
+        // Handle specific error cases
+        if (errorMessage.includes("already exists")) {
+          alert(
+            "A user with this email address already exists. Please use a different email or try logging in."
+          );
+        } else {
+          alert(errorMessage);
+        }
+
+        throw new Error(errorMessage);
       }
 
       const { checkoutUrl } = await response.json();

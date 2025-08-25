@@ -27,6 +27,20 @@ export default function PaymentSuccessPage() {
     console.log(
       "Payment verification successful, user creation will be handled by webhook"
     );
+    
+    // TODO: Remove this temporary check once webhook is working
+    // For now, we can add a fallback to check if user was created
+    const checkUserCreation = async () => {
+      try {
+        // You could add a check here to verify if the user was created
+        // by checking the session status or making a call to your API
+        console.log("Checking if user creation was successful...");
+      } catch (error) {
+        console.error("Error checking user creation:", error);
+      }
+    };
+    
+    checkUserCreation();
     setLoading(false);
   }, [searchParams]);
 

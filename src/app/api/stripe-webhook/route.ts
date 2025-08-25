@@ -4,8 +4,13 @@ import { createClient } from "@/utils/supabase/server";
 import { headers } from "next/headers";
 
 export async function POST(request: NextRequest) {
+  console.log("=== WEBHOOK RECEIVED ===");
+  console.log("Request URL:", request.url);
+  console.log("Request method:", request.method);
+
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeSecretKey) {
+    console.error("STRIPE_SECRET_KEY is not configured");
     return NextResponse.json(
       { error: "STRIPE_SECRET_KEY is not configured" },
       { status: 500 }
@@ -14,11 +19,14 @@ export async function POST(request: NextRequest) {
 
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!endpointSecret) {
+    console.error("STRIPE_WEBHOOK_SECRET is not configured");
     return NextResponse.json(
       { error: "STRIPE_WEBHOOK_SECRET is not configured" },
       { status: 500 }
     );
   }
+
+  console.log("Environment variables configured successfully");
 
   const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2025-07-30.basil",
@@ -28,10 +36,14 @@ export async function POST(request: NextRequest) {
   const headersList = await headers();
   const sig = headersList.get("stripe-signature");
 
+  console.log("Webhook signature:", sig ? "present" : "missing");
+  console.log("Body length:", body.length);
+
   let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(body, sig!, endpointSecret);
+    console.log("Webhook signature verification successful");
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
     return NextResponse.json(
@@ -49,10 +61,25 @@ export async function POST(request: NextRequest) {
       case "checkout.session.completed":
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // Extract metadata
-        const { formId, coachId, formData } = session.metadata || {};
+        console.log("=== CHECKOUT SESSION COMPLETED ===");
+        console.log("Session ID:", session.id);
+        console.log("Session metadata:", session.metadata);
+        console.log("Session customer:", session.customer);
+        console.log("Session subscription:", session.subscription);
 
-        if (!coachId) {
+        // Extract metadata
+        const { formId, coachId, email, password, fullName } =
+          session.metadata || {};
+
+        console.log("Extracted metadata:", {
+          formId,
+          coachId,
+          email: email ? "present" : "missing",
+          password: password ? "present" : "missing",
+          fullName: fullName ? "present" : "missing",
+        });
+
+        if (!coachId || !email || !password) {
           console.error("Missing required metadata for user creation");
           return NextResponse.json(
             { error: "Missing required metadata" },
@@ -60,23 +87,21 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Parse form data
-        const parsedFormData = JSON.parse(formData || "{}");
+        // Check if user already exists (in case webhook is called multiple times)
+        console.log("Checking if user already exists in webhook:", email);
+        const { data: existingUser, error: userCheckError } = await supabase
+          .from("users")
+          .select("id, email")
+          .eq("email", email)
+          .single();
 
-        // Extract email and password from form data
-        const email = parsedFormData.email || parsedFormData.email_address;
-        const password = parsedFormData.password;
-
-        if (!email || !password) {
-          console.error("Email or password not found in form data");
-          return NextResponse.json(
-            { error: "Email and password are required" },
-            { status: 400 }
-          );
+        if (existingUser) {
+          console.log("User already exists, skipping creation:", email);
+          return NextResponse.json({ received: true });
         }
 
-        // Log the form data for debugging
-        console.log("Form data received:", Object.keys(parsedFormData));
+        // Log the user data for debugging
+        console.log("Creating user with email:", email);
 
         // Create user in Supabase Auth
         const { data: authData, error: authError } =
@@ -95,12 +120,10 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = authData.user.id;
-
-        // Extract additional user data from form
-        const fullName =
-          parsedFormData.full_name || parsedFormData.name || null;
+        console.log("User created successfully with ID:", userId);
 
         // Save user data to users table
+        console.log("Saving user data to users table...");
         const { error: userError } = await supabase.from("users").insert({
           id: userId,
           email,
@@ -113,21 +136,26 @@ export async function POST(request: NextRequest) {
         if (userError) {
           console.error("Error saving user data:", userError);
           // Note: We don't want to fail the webhook if this fails, as the auth user is already created
+        } else {
+          console.log("User data saved successfully to users table");
         }
 
         // Save form submission
+        console.log("Saving form submission...");
         const { error: submissionError } = await supabase
           .from("signup_form_submissions")
           .insert({
             form_id: formId,
             coach_id: coachId,
-            form_data: parsedFormData,
+            form_data: { email, fullName }, // Store essential data only
             submitted_at: new Date().toISOString(),
             status: "converted", // Mark as converted since payment succeeded
           });
 
         if (submissionError) {
           console.error("Error saving form submission:", submissionError);
+        } else {
+          console.log("Form submission saved successfully");
         }
 
         console.log(`Successfully created user ${userId} for form ${formId}`);
