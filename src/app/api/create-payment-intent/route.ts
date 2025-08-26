@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/utils/supabase/server";
 
+interface PricingPlan {
+  name: string;
+  price: number;
+  enabled: boolean;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -16,14 +22,14 @@ export async function POST(request: NextRequest) {
       apiVersion: "2025-07-30.basil",
     });
 
-    const { formId, formData } = await request.json();
+    const { formId, formData, selectedPlan } = await request.json();
 
     // Get the form details to get pricing and coach information
     const supabase = await createClient();
 
     const { data: form, error: formError } = await supabase
       .from("signup_forms")
-      .select("price, pricing_type, coach_id, title")
+      .select("pricing_plans, coach_id, title")
       .eq("id", formId)
       .single();
 
@@ -37,14 +43,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Form not found" }, { status: 404 });
     }
 
-    // Validate amount
-    if (!form.price || form.price <= 0) {
-      console.error("Invalid price:", form.price);
-      return NextResponse.json({ error: "Invalid price" }, { status: 400 });
+    // Validate selected plan
+    if (!selectedPlan) {
+      console.error("No plan selected");
+      return NextResponse.json(
+        { error: "Please select a pricing plan" },
+        { status: 400 }
+      );
     }
 
-    // Determine the interval based on pricing type
-    const interval = form.pricing_type === "yearly" ? "year" : "month";
+    // Validate that the selected plan exists and is enabled
+    const pricingPlans = (form.pricing_plans || []) as PricingPlan[];
+    const planExists = pricingPlans.find(
+      (plan: PricingPlan) =>
+        plan.name === selectedPlan.name &&
+        plan.price === selectedPlan.price &&
+        plan.enabled
+    );
+
+    if (!planExists) {
+      console.error("Selected plan not found or not enabled:", selectedPlan);
+      return NextResponse.json(
+        { error: "Invalid pricing plan selected" },
+        { status: 400 }
+      );
+    }
+
+    // For free plans, we'll handle user creation after data extraction
+    const isFreePlan = selectedPlan.price === 0;
 
     // Extract essential user data from form data using form element types
     const extractedData = {
@@ -80,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     const elements = formStructure.elements as any[];
     console.log("Form elements:", elements);
-    
+
     // Map form elements to form data using their types
     elements.forEach((element) => {
       const fieldValue = formData[element.id];
@@ -145,7 +171,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Email is available, proceeding with payment creation");
+    console.log("Email is available, proceeding with user creation/payment");
+
+    // For free plans, create user account directly
+    if (isFreePlan) {
+      console.log("Free plan selected, creating user account directly");
+
+      // Create user account with plan information
+      const { data: newUser, error: userCreateError } = await supabase
+        .from("users")
+        .insert({
+          id: crypto.randomUUID(),
+          email: extractedData.email,
+          full_name: extractedData.fullName,
+          coach: form.coach_id,
+          role: "Client",
+          selected_plan_name: selectedPlan.name,
+          selected_plan_price: selectedPlan.price,
+          plan_active: true,
+          subscription_status: "active",
+        })
+        .select()
+        .single();
+
+      if (userCreateError) {
+        console.error("Error creating user account:", userCreateError);
+        return NextResponse.json(
+          { error: "Failed to create user account" },
+          { status: 500 }
+        );
+      }
+
+      console.log("User account created successfully:", newUser.id);
+      return NextResponse.json({
+        checkoutUrl: `${request.nextUrl.origin}/signup/${formId}/success?plan=free&user_id=${newUser.id}`,
+        isFreePlan: true,
+        userId: newUser.id,
+      });
+    }
 
     // Create a Stripe Checkout Session for subscription
     const session = await stripe.checkout.sessions.create({
@@ -155,12 +218,12 @@ export async function POST(request: NextRequest) {
           price_data: {
             currency: "usd",
             product_data: {
-              name: form.title,
-              description: `Subscription for ${form.title}`,
+              name: `${form.title} - ${selectedPlan.name}`,
+              description: `${selectedPlan.name} plan for ${form.title}`,
             },
-            unit_amount: Math.round(form.price * 100), // Convert to cents
+            unit_amount: Math.round(selectedPlan.price * 100), // Convert to cents
             recurring: {
-              interval: interval,
+              interval: "month", // Always monthly
             },
           },
           quantity: 1,
@@ -176,7 +239,8 @@ export async function POST(request: NextRequest) {
         password: extractedData.password,
         fullName: extractedData.fullName || "",
         formTitle: form.title,
-        pricingType: form.pricing_type,
+        selectedPlan: selectedPlan.name,
+        planPrice: selectedPlan.price.toString(),
       },
     });
 

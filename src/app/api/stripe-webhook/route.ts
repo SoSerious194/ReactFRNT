@@ -91,8 +91,15 @@ export async function POST(request: NextRequest) {
         console.log("Session subscription:", session.subscription);
 
         // Extract metadata
-        const { formId, coachId, email, password, fullName } =
-          session.metadata || {};
+        const {
+          formId,
+          coachId,
+          email,
+          password,
+          fullName,
+          selectedPlan,
+          planPrice,
+        } = session.metadata || {};
 
         console.log("Extracted metadata:", {
           formId,
@@ -251,6 +258,14 @@ export async function POST(request: NextRequest) {
           id: userId,
           email,
           full_name: fullName,
+          coach: coachId,
+          role: "Client",
+          selected_plan_name: selectedPlan,
+          selected_plan_price: planPrice ? parseFloat(planPrice) : null,
+          plan_active: true,
+          stripe_customer_id: session.customer as string,
+          stripe_subscription_id: session.subscription as string,
+          subscription_status: "active",
           created_at: new Date().toISOString(),
         };
 
@@ -281,8 +296,14 @@ export async function POST(request: NextRequest) {
               .update({
                 email,
                 full_name: fullName,
-                role: "client",
+                role: "Client",
                 coach: coachId,
+                selected_plan_name: selectedPlan,
+                selected_plan_price: planPrice ? parseFloat(planPrice) : null,
+                plan_active: true,
+                stripe_customer_id: session.customer as string,
+                stripe_subscription_id: session.subscription as string,
+                subscription_status: "active",
                 created_at: new Date().toISOString(),
               })
               .eq("id", userId);
@@ -426,6 +447,52 @@ export async function POST(request: NextRequest) {
         }
         break;
 
+      case "customer.subscription.updated":
+        const updatedSubscription = event.data.object as Stripe.Subscription;
+        console.log("=== SUBSCRIPTION UPDATED ===");
+        console.log("Subscription ID:", updatedSubscription.id);
+        console.log("Status:", updatedSubscription.status);
+
+        // Update user's subscription status
+        const { error: updateError } = await supabase
+          .from("users")
+          .update({
+            subscription_status: updatedSubscription.status,
+            plan_active: updatedSubscription.status === "active",
+          })
+          .eq("stripe_subscription_id", updatedSubscription.id);
+
+        if (updateError) {
+          console.error("Error updating subscription status:", updateError);
+        } else {
+          console.log("Subscription status updated successfully");
+        }
+        break;
+
+      case "customer.subscription.deleted":
+        const deletedSubscription = event.data.object as Stripe.Subscription;
+        console.log("=== SUBSCRIPTION DELETED ===");
+        console.log("Subscription ID:", deletedSubscription.id);
+
+        // Update user's subscription status to inactive
+        const { error: deleteError } = await supabase
+          .from("users")
+          .update({
+            subscription_status: "canceled",
+            plan_active: false,
+          })
+          .eq("stripe_subscription_id", deletedSubscription.id);
+
+        if (deleteError) {
+          console.error(
+            "Error updating deleted subscription status:",
+            deleteError
+          );
+        } else {
+          console.log("Subscription deletion status updated successfully");
+        }
+        break;
+
       case "invoice.payment_succeeded":
         const invoice = event.data.object as Stripe.Invoice;
         console.log(
@@ -438,6 +505,24 @@ export async function POST(request: NextRequest) {
         console.log(
           `Subscription payment failed for invoice: ${failedInvoice.id}`
         );
+
+        // Update user's subscription status to past_due
+        const subscriptionId = (failedInvoice as any).subscription;
+        if (subscriptionId && typeof subscriptionId === "string") {
+          const { error: failedError } = await supabase
+            .from("users")
+            .update({
+              subscription_status: "past_due",
+              plan_active: false,
+            })
+            .eq("stripe_subscription_id", subscriptionId);
+
+          if (failedError) {
+            console.error("Error updating failed payment status:", failedError);
+          } else {
+            console.log("Failed payment status updated successfully");
+          }
+        }
         break;
 
       default:

@@ -2158,8 +2158,7 @@ export type Database = {
           elements: Json
           id: string
           is_active: boolean | null
-          price: number | null
-          pricing_type: string | null
+          pricing_plans: Json | null
           title: string
           updated_at: string | null
         }
@@ -2170,8 +2169,7 @@ export type Database = {
           elements?: Json
           id?: string
           is_active?: boolean | null
-          price?: number | null
-          pricing_type?: string | null
+          pricing_plans?: Json | null
           title: string
           updated_at?: string | null
         }
@@ -2182,8 +2180,7 @@ export type Database = {
           elements?: Json
           id?: string
           is_active?: boolean | null
-          price?: number | null
-          pricing_type?: string | null
+          pricing_plans?: Json | null
           title?: string
           updated_at?: string | null
         }
@@ -2408,10 +2405,16 @@ export type Database = {
           last_app_open: string | null
           last_habit_completion: string | null
           login_streak_start_date: string | null
+          plan_active: boolean | null
           profile_image_url: string | null
           role: string | null
+          selected_plan_name: string | null
+          selected_plan_price: number | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           streak_start_date: string | null
           stream_user_id: string | null
+          subscription_status: string | null
           workspace_id: string | null
         }
         Insert: {
@@ -2426,10 +2429,16 @@ export type Database = {
           last_app_open?: string | null
           last_habit_completion?: string | null
           login_streak_start_date?: string | null
+          plan_active?: boolean | null
           profile_image_url?: string | null
           role?: string | null
+          selected_plan_name?: string | null
+          selected_plan_price?: number | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           streak_start_date?: string | null
           stream_user_id?: string | null
+          subscription_status?: string | null
           workspace_id?: string | null
         }
         Update: {
@@ -2444,10 +2453,16 @@ export type Database = {
           last_app_open?: string | null
           last_habit_completion?: string | null
           login_streak_start_date?: string | null
+          plan_active?: boolean | null
           profile_image_url?: string | null
           role?: string | null
+          selected_plan_name?: string | null
+          selected_plan_price?: number | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           streak_start_date?: string | null
           stream_user_id?: string | null
+          subscription_status?: string | null
           workspace_id?: string | null
         }
         Relationships: []

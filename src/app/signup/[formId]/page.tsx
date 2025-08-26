@@ -30,12 +30,17 @@ interface FormElement {
   radioOptions?: string[];
 }
 
+interface PricingPlan {
+  name: string;
+  price: number;
+  enabled: boolean;
+}
+
 interface SignupForm {
   id: string;
   title: string;
   description: string;
-  pricing_type: "monthly" | "yearly";
-  price: number;
+  pricing_plans: PricingPlan[];
   is_active: boolean;
   elements: FormElement[];
   coach_id: string;
@@ -53,6 +58,7 @@ export default function PublicSignupFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState<FormSubmission>({});
+  const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const supabase = createClient();
 
@@ -117,6 +123,12 @@ export default function PublicSignupFormPage() {
         return;
       }
 
+      // Validate that a pricing plan is selected
+      if (!selectedPlan) {
+        alert("Please select a pricing plan.");
+        return;
+      }
+
       // Create checkout session with all form data
       const response = await fetch("/api/create-payment-intent", {
         method: "POST",
@@ -126,6 +138,7 @@ export default function PublicSignupFormPage() {
         body: JSON.stringify({
           formId,
           formData,
+          selectedPlan,
         }),
       });
 
@@ -386,6 +399,42 @@ export default function PublicSignupFormPage() {
                     )}
                   </div>
                 ))}
+
+              {/* Pricing Plan Selection */}
+              {form.pricing_plans && form.pricing_plans.filter(plan => plan.enabled).length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Select Your Plan</h3>
+                  <div className="grid gap-3">
+                    {form.pricing_plans
+                      .filter(plan => plan.enabled)
+                      .map((plan, index) => (
+                        <div
+                          key={index}
+                          className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                            selectedPlan?.name === plan.name
+                              ? "border-green-600 bg-green-50"
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                          onClick={() => setSelectedPlan(plan)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{plan.name}</h4>
+                              <p className="text-sm text-gray-600">
+                                {plan.price === 0 ? "Free" : `$${plan.price}/month`}
+                              </p>
+                            </div>
+                            <div className="flex items-center">
+                              {selectedPlan?.name === plan.name && (
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
 
               <Button
                 type="submit"

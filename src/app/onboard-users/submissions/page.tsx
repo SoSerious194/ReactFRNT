@@ -17,6 +17,12 @@ import Link from "next/link";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/utils/supabase/client";
 
+interface PricingPlan {
+  name: string;
+  price: number;
+  enabled: boolean;
+}
+
 interface FormSubmission {
   id: string;
   form_id: string;
@@ -27,8 +33,7 @@ interface FormSubmission {
   notes: string | null;
   form: {
     title: string;
-    price: number;
-    pricing_type: "monthly" | "yearly";
+    pricing_plans: PricingPlan[];
   };
 }
 
@@ -56,7 +61,7 @@ export default function FormSubmissionsPage() {
         .select(
           `
           *,
-          form:signup_forms(title, price, pricing_type)
+          form:signup_forms(title, pricing_plans)
         `
         )
         .eq("coach_id", user.id)
@@ -277,8 +282,7 @@ export default function FormSubmissionsPage() {
                         <div className="flex items-center gap-1">
                           <DollarSign className="w-4 h-4" />
                           <span>
-                            ${submission.form.price}/
-                            {submission.form.pricing_type}
+                            {submission.form.pricing_plans?.filter(plan => plan.enabled).length || 0} plans
                           </span>
                         </div>
                       </div>

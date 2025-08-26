@@ -72,12 +72,17 @@ interface FormElement {
   rangeStep?: number;
 }
 
+interface PricingPlan {
+  name: string;
+  price: number;
+  enabled: boolean;
+}
+
 interface SignupFormData {
   id?: string;
   title: string;
   description: string;
-  pricing_type: "monthly" | "yearly";
-  price: number;
+  pricing_plans: PricingPlan[];
   is_active: boolean;
   elements: FormElement[];
 }
@@ -171,8 +176,11 @@ export default function SignupFormBuilder({
   const [formData, setFormData] = useState<SignupFormData>({
     title: initialForm?.title || "New Signup Form",
     description: initialForm?.description || "",
-    pricing_type: initialForm?.pricing_type || "monthly",
-    price: initialForm?.price || 0,
+    pricing_plans: initialForm?.pricing_plans || [
+      { name: "Free", price: 0, enabled: true },
+      { name: "Fitness", price: 29.99, enabled: true },
+      { name: "Fitness + Nutrition", price: 49.99, enabled: true },
+    ],
     is_active: initialForm?.is_active ?? true,
     elements: initialForm?.elements || [],
   });
@@ -269,7 +277,10 @@ export default function SignupFormBuilder({
       type: elementType,
       label: label,
       placeholder: "",
-      required: false,
+      required:
+        elementType === "full_name" ||
+        elementType === "email" ||
+        elementType === "password",
       orderIndex: formData.elements.length,
       dropdownOptions:
         elementType === "dropdown" ? ["Option 1", "Option 2"] : undefined,
@@ -300,6 +311,22 @@ export default function SignupFormBuilder({
   };
 
   const deleteElement = (elementId: string) => {
+    const elementToDelete = formData.elements.find((el) => el.id === elementId);
+
+    // Prevent deletion of mandatory fields
+    if (
+      elementToDelete &&
+      (elementToDelete.type === "full_name" ||
+        elementToDelete.type === "email" ||
+        elementToDelete.type === "password")
+    ) {
+      addToast({
+        type: "error",
+        message: "Cannot delete mandatory fields (Full Name, Email, Password)",
+      });
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       elements: prev.elements.filter((el) => el.id !== elementId),
@@ -307,6 +334,47 @@ export default function SignupFormBuilder({
     if (selectedElement?.id === elementId) {
       setSelectedElement(null);
     }
+  };
+
+  const ensureMandatoryFields = (elements: FormElement[]): FormElement[] => {
+    const mandatoryFields = [
+      { type: "full_name", label: "Full Name", required: true },
+      { type: "email", label: "Email Address", required: true },
+      { type: "password", label: "Password", required: true },
+    ];
+
+    const existingElements = [...elements];
+    const existingTypes = existingElements.map((el) => el.type);
+
+    // Add missing mandatory fields
+    mandatoryFields.forEach((field, index) => {
+      if (!existingTypes.includes(field.type)) {
+        const newElement: FormElement = {
+          id: `mandatory_${field.type}_${Date.now()}`,
+          type: field.type,
+          label: field.label,
+          placeholder: "",
+          required: field.required,
+          orderIndex: index, // Place mandatory fields at the top
+          dropdownOptions: undefined,
+          checklistOptions: undefined,
+          radioOptions: undefined,
+        };
+        existingElements.unshift(newElement);
+      }
+    });
+
+    // Ensure mandatory fields are required
+    return existingElements.map((element) => {
+      if (
+        element.type === "full_name" ||
+        element.type === "email" ||
+        element.type === "password"
+      ) {
+        return { ...element, required: true };
+      }
+      return element;
+    });
   };
 
   const handleSave = async () => {
@@ -317,8 +385,11 @@ export default function SignupFormBuilder({
       } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
+      // Ensure mandatory fields are present and required
+      const elementsWithMandatory = ensureMandatoryFields(formData.elements);
+
       // Ensure elements are in the correct order
-      const orderedElements = formData.elements
+      const orderedElements = elementsWithMandatory
         .sort((a, b) => a.orderIndex - b.orderIndex)
         .map((element, index) => ({
           ...element,
@@ -648,58 +719,91 @@ export default function SignupFormBuilder({
               </CardContent>
             </Card>
 
-            {/* Section 3: Pricing Information */}
+            {/* Section 3: Pricing Plans */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="w-5 h-5" />
-                  Pricing Information
+                  Pricing Plans (Monthly Only)
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Pricing Type
-                    </label>
-                    <Select
-                      value={formData.pricing_type}
-                      onValueChange={(value: "monthly" | "yearly") =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          pricing_type: value,
-                        }))
-                      }
+                <div className="space-y-4">
+                  {formData.pricing_plans.map((plan, index) => (
+                    <div
+                      key={index}
+                      className="border rounded-lg p-4 space-y-3"
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="yearly">Yearly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Price ($
-                      {formData.pricing_type === "monthly" ? "/month" : "/year"}
-                      )
-                    </label>
-                    <Input
-                      type="number"
-                      value={formData.price}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          price: parseFloat(e.target.value) || 0,
-                        }))
-                      }
-                      placeholder="0.00"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-gray-900">
+                          {plan.name}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={plan.enabled}
+                            onCheckedChange={(checked) => {
+                              const updatedPlans = [...formData.pricing_plans];
+                              updatedPlans[index].enabled = checked as boolean;
+                              setFormData((prev) => ({
+                                ...prev,
+                                pricing_plans: updatedPlans,
+                              }));
+                            }}
+                          />
+                          <span className="text-sm text-gray-600">Enable</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Plan Name
+                          </label>
+                          <Input
+                            value={plan.name}
+                            onChange={(e) => {
+                              const updatedPlans = [...formData.pricing_plans];
+                              updatedPlans[index].name = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                pricing_plans: updatedPlans,
+                              }));
+                            }}
+                            placeholder="Plan name"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Price ($/month)
+                          </label>
+                          <Input
+                            type="number"
+                            value={plan.price}
+                            onChange={(e) => {
+                              const updatedPlans = [...formData.pricing_plans];
+                              updatedPlans[index].price =
+                                parseFloat(e.target.value) || 0;
+                              setFormData((prev) => ({
+                                ...prev,
+                                pricing_plans: updatedPlans,
+                              }));
+                            }}
+                            placeholder="0.00"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-sm text-gray-600">
+                  <p>
+                    • Users will be able to select from the enabled plans when
+                    filling out the form
+                  </p>
+                  <p>• At least one plan must be enabled</p>
                 </div>
               </CardContent>
             </Card>
@@ -742,12 +846,17 @@ export default function SignupFormBuilder({
                       })
                     }
                     className="w-full p-2 border border-gray-300 rounded-md"
+                    disabled={
+                      selectedElement.type === "full_name" ||
+                      selectedElement.type === "email" ||
+                      selectedElement.type === "password"
+                    }
                   >
-                                         <option value="full_name">Full Name</option>
-                     <option value="email">Email Address</option>
-                     <option value="password">Password</option>
-                     <option value="phone">Phone Number</option>
-                     <option value="date_of_birth">Date of Birth</option>
+                    <option value="full_name">Full Name (Mandatory)</option>
+                    <option value="email">Email Address (Mandatory)</option>
+                    <option value="password">Password (Mandatory)</option>
+                    <option value="phone">Phone Number</option>
+                    <option value="date_of_birth">Date of Birth</option>
                     <option value="fitness_goals">Fitness Goals</option>
                     <option value="current_fitness_level">
                       Current Fitness Level
@@ -765,6 +874,13 @@ export default function SignupFormBuilder({
                     <option value="radio">Radio Button Group</option>
                     <option value="checklist">Checklist Group</option>
                   </select>
+                  {(selectedElement.type === "full_name" ||
+                    selectedElement.type === "email" ||
+                    selectedElement.type === "password") && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Mandatory fields cannot be changed
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -807,12 +923,30 @@ export default function SignupFormBuilder({
                         required: checked as boolean,
                       })
                     }
+                    disabled={
+                      selectedElement.type === "full_name" ||
+                      selectedElement.type === "email" ||
+                      selectedElement.type === "password"
+                    }
                   />
                   <label
                     htmlFor="required"
-                    className="ml-2 text-sm text-gray-700"
+                    className={`ml-2 text-sm ${
+                      selectedElement.type === "full_name" ||
+                      selectedElement.type === "email" ||
+                      selectedElement.type === "password"
+                        ? "text-gray-500"
+                        : "text-gray-700"
+                    }`}
                   >
                     Required Field
+                    {(selectedElement.type === "full_name" ||
+                      selectedElement.type === "email" ||
+                      selectedElement.type === "password") && (
+                      <span className="text-xs text-gray-400 ml-1">
+                        (Always required)
+                      </span>
+                    )}
                   </label>
                 </div>
               </div>

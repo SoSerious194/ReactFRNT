@@ -19,12 +19,17 @@ import Link from "next/link";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/utils/supabase/client";
 
+interface PricingPlan {
+  name: string;
+  price: number;
+  enabled: boolean;
+}
+
 interface SignupForm {
   id: string;
   title: string;
   description: string;
-  pricing_type: "monthly" | "yearly";
-  price: number;
+  pricing_plans: PricingPlan[];
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -210,12 +215,33 @@ export default function OnboardUsersPage() {
                 </CardHeader>
                 <CardContent>
                   {/* Pricing Info */}
-                  <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
-                    <DollarSign className="w-4 h-4" />
-                    <span className="font-medium">${form.price}</span>
-                    <span>/</span>
-                    <Calendar className="w-4 h-4" />
-                    <span>{form.pricing_type}</span>
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                      <DollarSign className="w-4 h-4" />
+                      <span className="font-medium">Pricing Plans</span>
+                    </div>
+                    <div className="space-y-1">
+                      {form.pricing_plans
+                        ?.filter((plan) => plan.enabled)
+                        .map((plan, index) => (
+                          <div
+                            key={index}
+                            className="flex justify-between text-xs text-gray-600"
+                          >
+                            <span>{plan.name}</span>
+                            <span className="font-medium">
+                              ${plan.price}/month
+                            </span>
+                          </div>
+                        ))}
+                      {(!form.pricing_plans ||
+                        form.pricing_plans.filter((plan) => plan.enabled)
+                          .length === 0) && (
+                        <span className="text-xs text-gray-500">
+                          No plans configured
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Actions */}
