@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
           email,
           full_name: fullName,
           coach: coachId,
-          role: "Client",
+          role: "client",
           selected_plan_name: selectedPlan,
           selected_plan_price: planPrice ? parseFloat(planPrice) : null,
           plan_active: true,
@@ -296,7 +296,7 @@ export async function POST(request: NextRequest) {
               .update({
                 email,
                 full_name: fullName,
-                role: "Client",
+                role: "client",
                 coach: coachId,
                 selected_plan_name: selectedPlan,
                 selected_plan_price: planPrice ? parseFloat(planPrice) : null,
