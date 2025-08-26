@@ -395,7 +395,7 @@ export default function WorkoutPreviewGeneratorPage() {
         backgroundColor: layoutSettings.backgroundColor || "#ffffff",
         scale: 2, // Higher quality
         logging: false,
-        onclone: (clonedDoc) => {
+        onclone: async (clonedDoc) => {
           // Fix oklch color issues in the cloned document
           const elements = clonedDoc.querySelectorAll("*");
           elements.forEach((element) => {
@@ -427,15 +427,66 @@ export default function WorkoutPreviewGeneratorPage() {
           // Ensure images in the cloned document are properly loaded
           const images = clonedDoc.querySelectorAll("img");
           console.log("Found", images.length, "images in cloned document");
+
+          // Wait for all images to load
+          const imagePromises = Array.from(images).map((img, index) => {
+            return new Promise<void>((resolve) => {
+              const imgElement = img as HTMLImageElement;
+              console.log(`Image ${index}:`, imgElement.src);
+
+              // Set crossOrigin for CORS support
+              imgElement.crossOrigin = "anonymous";
+
+              if (imgElement.complete && imgElement.naturalHeight !== 0) {
+                console.log(`Image ${index} already loaded`);
+                resolve();
+              } else {
+                imgElement.onload = () => {
+                  console.log(`Image ${index} loaded successfully`);
+                  resolve();
+                };
+                imgElement.onerror = () => {
+                  console.log(`Image ${index} failed to load, continuing...`);
+                  resolve();
+                };
+                // Force reload the image to ensure it's captured
+                if (imgElement.src) {
+                  console.log(`Reloading image ${index}:`, imgElement.src);
+                  imgElement.src = imgElement.src;
+                }
+              }
+            });
+          });
+
+          // Wait for all images to load before continuing
+          await Promise.all(imagePromises);
+          console.log("All images processed");
+
+          // Additional debugging: check if images are visible
           images.forEach((img, index) => {
             const imgElement = img as HTMLImageElement;
-            console.log(`Image ${index}:`, imgElement.src);
-            // Set crossOrigin for CORS support
-            imgElement.crossOrigin = "anonymous";
-            // Force reload the image to ensure it's captured
-            if (imgElement.src) {
-              console.log(`Reloading image ${index}:`, imgElement.src);
-              imgElement.src = imgElement.src;
+            console.log(`Image ${index} final state:`, {
+              src: imgElement.src,
+              complete: imgElement.complete,
+              naturalWidth: imgElement.naturalWidth,
+              naturalHeight: imgElement.naturalHeight,
+              offsetWidth: imgElement.offsetWidth,
+              offsetHeight: imgElement.offsetHeight,
+              style: {
+                display: imgElement.style.display,
+                visibility: imgElement.style.visibility,
+                opacity: imgElement.style.opacity,
+              },
+            });
+
+            // Ensure image is visible and properly sized
+            if (imgElement.naturalWidth > 0 && imgElement.naturalHeight > 0) {
+              imgElement.style.display = "block";
+              imgElement.style.visibility = "visible";
+              imgElement.style.opacity = "1";
+              imgElement.style.width = "100%";
+              imgElement.style.height = "100%";
+              imgElement.style.objectFit = "cover";
             }
           });
         },
