@@ -18,6 +18,7 @@ export const navConfig = {
       { label: "Exercise Library", href: "/exercise-library" },
       { label: "Video On-Demand", href: "/video-on-demand" },
       { label: "Forms & Questionnaires", href: "/forms" },
+      { label: "Workout Preview Generator", href: "/workout-preview-generator" },
     ],
   },
   "nutrition-hub": {

@@ -1,0 +1,14 @@
+[
+  {
+    "origin": ["http://localhost:3000", "https://ptflow.vercel.app"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": [
+      "Content-Type",
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Methods",
+      "Access-Control-Allow-Headers",
+      "Access-Control-Max-Age"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

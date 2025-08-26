@@ -2092,6 +2092,9 @@ export type Database = {
           id: string
           notes: string | null
           status: string | null
+          stripe_customer_id: string | null
+          stripe_session_id: string | null
+          stripe_subscription_id: string | null
           submitted_at: string | null
           updated_at: string | null
         }
@@ -2103,6 +2106,9 @@ export type Database = {
           id?: string
           notes?: string | null
           status?: string | null
+          stripe_customer_id?: string | null
+          stripe_session_id?: string | null
+          stripe_subscription_id?: string | null
           submitted_at?: string | null
           updated_at?: string | null
         }
@@ -2114,6 +2120,9 @@ export type Database = {
           id?: string
           notes?: string | null
           status?: string | null
+          stripe_customer_id?: string | null
+          stripe_session_id?: string | null
+          stripe_subscription_id?: string | null
           submitted_at?: string | null
           updated_at?: string | null
         }
@@ -2540,6 +2549,57 @@ export type Database = {
             columns: ["workout_id"]
             isOneToOne: false
             referencedRelation: "workouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_sample_images: {
+        Row: {
+          ai_analysis: string | null
+          coach_id: string | null
+          created_at: string | null
+          id: string
+          image_url: string
+          is_global: boolean | null
+          name: string
+          thumbnail_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_analysis?: string | null
+          coach_id?: string | null
+          created_at?: string | null
+          id?: string
+          image_url: string
+          is_global?: boolean | null
+          name: string
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_analysis?: string | null
+          coach_id?: string | null
+          created_at?: string | null
+          id?: string
+          image_url?: string
+          is_global?: boolean | null
+          name?: string
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_sample_images_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "user_active_meal_plan"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "workout_sample_images_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

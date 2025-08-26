@@ -12,6 +12,7 @@ const pathToMainKey: Record<string, string> = {
   "workout-library": "training-hub",
   "exercise-library": "training-hub",
   "video-on-demand": "training-hub",
+  "workout-preview-generator": "training-hub",
   "clients-groups": "clients-groups",
   // add more mappings as needed
 };
