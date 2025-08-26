@@ -30,12 +30,17 @@ interface FormElement {
   rangeStep?: number;
 }
 
+interface PricingPlan {
+  name: string;
+  price: number;
+  enabled: boolean;
+}
+
 interface SignupFormData {
   id?: string;
   title: string;
   description: string;
-  pricing_type: "monthly" | "yearly";
-  price: number;
+  pricing_plans: PricingPlan[];
   is_active: boolean;
   elements: FormElement[];
 }
