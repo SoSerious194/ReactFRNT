@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/utils/supabase/server";
 
-interface PricingPlan {
-  name: string;
-  price: number;
-  enabled: boolean;
-}
-
 export async function POST(request: NextRequest) {
   try {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -59,15 +53,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Determine if this is actually an upgrade based on current plan
+    const currentPlanPrice = userData.selected_plan_price || 0;
+    const isActuallyUpgrade =
+      isUpgrade && currentPlanPrice > 0 && planPrice > currentPlanPrice;
+    const isDowngrade =
+      isUpgrade && currentPlanPrice > 0 && planPrice < currentPlanPrice;
+
     // For upgrades, check if user already has an active subscription
+    // Only block upgrades if user has an active subscription that's not free
     if (
       isUpgrade &&
-      (!userData.stripe_subscription_id || !userData.stripe_customer_id)
+      userData.stripe_subscription_id &&
+      userData.selected_plan_price &&
+      userData.selected_plan_price > 0
     ) {
       return NextResponse.json(
-        { error: "No active subscription found to upgrade" },
+        {
+          error:
+            "You already have an active paid subscription. Please cancel your current subscription first.",
+        },
         { status: 400 }
       );
+    }
+
+    // Handle different subscription scenarios
+    let subscriptionMode = "new";
+    if (isActuallyUpgrade) {
+      subscriptionMode = "upgrade";
+    } else if (isDowngrade) {
+      subscriptionMode = "downgrade";
+    } else if (currentPlanPrice === 0 && planPrice > 0) {
+      subscriptionMode = "upgrade_from_free";
     }
 
     // Create or get Stripe customer
