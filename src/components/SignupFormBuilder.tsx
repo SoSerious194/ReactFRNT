@@ -92,6 +92,36 @@ interface SignupFormBuilderProps {
   mode?: "create" | "edit";
 }
 
+// Helper function to create mandatory fields
+const createMandatoryFields = (): FormElement[] => {
+  return [
+    {
+      id: `mandatory_full_name_${Date.now()}`,
+      type: "full_name",
+      label: "Full Name",
+      placeholder: "",
+      required: true,
+      orderIndex: 0,
+    },
+    {
+      id: `mandatory_email_${Date.now()}`,
+      type: "email",
+      label: "Email Address",
+      placeholder: "",
+      required: true,
+      orderIndex: 1,
+    },
+    {
+      id: `mandatory_password_${Date.now()}`,
+      type: "password",
+      label: "Password",
+      placeholder: "",
+      required: true,
+      orderIndex: 2,
+    },
+  ];
+};
+
 // Sortable Form Element Component
 function SortableFormElement({
   element,
@@ -182,11 +212,18 @@ export default function SignupFormBuilder({
       { name: "Fitness + Nutrition", price: 49.99, enabled: true },
     ],
     is_active: initialForm?.is_active ?? true,
-    elements: initialForm?.elements || [],
+    elements: initialForm?.elements || createMandatoryFields(),
   });
   const [selectedElement, setSelectedElement] = useState<FormElement | null>(
     null
   );
+
+  // Auto-select the first field when creating a new form
+  useEffect(() => {
+    if (mode === "create" && formData.elements.length > 0 && !selectedElement) {
+      setSelectedElement(formData.elements[0]);
+    }
+  }, [mode, formData.elements, selectedElement]);
   const [searchQuery, setSearchQuery] = useState("");
   const [saving, setSaving] = useState(false);
   const { addToast } = useToast();
@@ -356,9 +393,6 @@ export default function SignupFormBuilder({
           placeholder: "",
           required: field.required,
           orderIndex: index, // Place mandatory fields at the top
-          dropdownOptions: undefined,
-          checklistOptions: undefined,
-          radioOptions: undefined,
         };
         existingElements.unshift(newElement);
       }
