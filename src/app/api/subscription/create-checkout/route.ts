@@ -27,13 +27,41 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Check authentication - handle both web (cookies) and mobile (headers)
+    let user = null;
+    let authError = null;
+
+    // First try to get user from cookies (web app)
+    const { data: cookieData, error: cookieError } =
+      await supabase.auth.getUser();
+    if (cookieData?.user) {
+      user = cookieData.user;
+    } else {
+      // Try to get user from Authorization header (mobile app)
+      const authHeader = request.headers.get("authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.substring(7);
+        const { data: headerData, error: headerError } =
+          await supabase.auth.getUser(token);
+        if (headerData?.user) {
+          user = headerData.user;
+        } else {
+          authError = headerError;
+        }
+      } else {
+        authError = new Error("No authentication token provided");
+      }
+    }
+
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.error("Authentication failed:", authError);
+      return NextResponse.json(
+        {
+          error: "Unauthorized",
+          details: "Please provide a valid authentication token",
+        },
+        { status: 401 }
+      );
     }
 
     // Get user's current subscription info
