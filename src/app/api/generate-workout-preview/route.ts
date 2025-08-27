@@ -1,14 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { Storage } from "@google-cloud/storage";
-
-// Initialize Google Cloud Storage
-const storage = new Storage({
-  projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-  credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS || "{}"),
-});
-
-const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || "mob_workout_images";
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,56 +18,83 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File;
     const workoutId = formData.get("workoutId") as string;
 
-    if (!workoutId || !file) {
+    if (!file || !workoutId) {
       return NextResponse.json(
-        { error: "Workout ID and image file are required" },
+        { error: "Missing file or workoutId" },
         { status: 400 }
       );
     }
 
-    // Generate unique filename for the generated preview
-    const timestamp = Date.now();
-    const fileName = `workout-previews/${user.id}/${workoutId}-${timestamp}.png`;
-
     // Convert file to buffer
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-    // Upload to Google Cloud Storage
-    const bucket = storage.bucket(bucketName);
-    const fileUpload = bucket.file(fileName);
+    // Generate unique filename
+    const filename = `workout-previews/${workoutId}-${Date.now()}.png`;
 
-    await fileUpload.save(buffer, {
-      metadata: {
-        contentType: "image/png",
-      },
-    });
+    // Upload to Cloudflare Images
+    const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN;
 
-    // Get the public URL
-    const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
+    if (!cloudflareAccountId || !cloudflareApiToken) {
+      return NextResponse.json(
+        { error: "Cloudflare configuration missing" },
+        { status: 500 }
+      );
+    }
 
-    // Update the workout's cover_photo with the generated image URL
+    // Create form data for Cloudflare upload
+    const cloudflareFormData = new FormData();
+    cloudflareFormData.append("file", new Blob([buffer], { type: "image/png" }), filename);
+    cloudflareFormData.append("metadata", JSON.stringify({
+      workout_id: workoutId,
+      coach_id: user.id,
+      upload_type: "workout_preview"
+    }));
+
+    const cloudflareResponse = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${cloudflareApiToken}`,
+        },
+        body: cloudflareFormData,
+      }
+    );
+
+    if (!cloudflareResponse.ok) {
+      const errorData = await cloudflareResponse.json();
+      console.error("Cloudflare upload error:", errorData);
+      return NextResponse.json(
+        { error: "Failed to upload image to Cloudflare" },
+        { status: 500 }
+      );
+    }
+
+    const cloudflareResult = await cloudflareResponse.json();
+    const coverPhotoUrl = cloudflareResult.result.variants[0]; // Get the first variant URL
+
+    // Update the workout's cover photo in the database
     const { error: updateError } = await supabase
       .from("workouts")
-      .update({ cover_photo: publicUrl })
+      .update({ cover_photo: coverPhotoUrl })
       .eq("id", workoutId);
 
     if (updateError) {
       console.error("Error updating workout cover photo:", updateError);
-      // If database save fails, delete the uploaded file
-      await fileUpload.delete();
       return NextResponse.json(
-        { error: "Failed to save cover photo" },
+        { error: "Failed to update workout cover photo" },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      coverPhotoUrl: publicUrl,
-      message: "Cover photo saved successfully",
+      coverPhotoUrl,
     });
   } catch (error) {
-    console.error("Error generating workout preview:", error);
+    console.error("Error saving cover photo:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

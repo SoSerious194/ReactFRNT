@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select(
-        "stripe_customer_id, stripe_subscription_id, selected_plan_name, selected_plan_price"
+        "stripe_customer_id, stripe_subscription_id, selected_plan_name, selected_plan_price, subscription_status, plan_active"
       )
       .eq("id", user.id)
       .single();
@@ -94,7 +94,9 @@ export async function POST(request: NextRequest) {
       isUpgrade &&
       userData.stripe_subscription_id &&
       userData.selected_plan_price &&
-      userData.selected_plan_price > 0
+      userData.selected_plan_price > 0 &&
+      userData.subscription_status === "active" &&
+      userData.plan_active === true
     ) {
       return NextResponse.json(
         {

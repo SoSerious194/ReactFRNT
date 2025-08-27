@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { Storage } from "@google-cloud/storage";
 import OpenAI from "openai";
-
-// Initialize Google Cloud Storage
-const storage = new Storage({
-  projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-  credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS || "{}"),
-});
-
-const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || "mob_workout_images";
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -61,18 +52,54 @@ export async function POST(request: NextRequest) {
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Upload to Google Cloud Storage
-    const bucket = storage.bucket(bucketName);
-    const fileUpload = bucket.file(fileName);
+    // Upload to Cloudflare Images
+    const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN;
 
-    await fileUpload.save(buffer, {
-      metadata: {
-        contentType: file.type,
-      },
-    });
+    if (!cloudflareAccountId || !cloudflareApiToken) {
+      return NextResponse.json(
+        { error: "Cloudflare configuration missing" },
+        { status: 500 }
+      );
+    }
 
-    // Get the public URL (bucket should be publicly readable)
-    const publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
+    // Create form data for Cloudflare upload
+    const cloudflareFormData = new FormData();
+    cloudflareFormData.append(
+      "file",
+      new Blob([buffer], { type: file.type }),
+      fileName
+    );
+    cloudflareFormData.append(
+      "metadata",
+      JSON.stringify({
+        coach_id: user.id,
+        upload_type: "workout_sample",
+      })
+    );
+
+    const cloudflareResponse = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${cloudflareApiToken}`,
+        },
+        body: cloudflareFormData,
+      }
+    );
+
+    if (!cloudflareResponse.ok) {
+      const errorData = await cloudflareResponse.json();
+      console.error("Cloudflare upload error:", errorData);
+      return NextResponse.json(
+        { error: "Failed to upload image to Cloudflare" },
+        { status: 500 }
+      );
+    }
+
+    const cloudflareResult = await cloudflareResponse.json();
+    const publicUrl = cloudflareResult.result.variants[0]; // Get the first variant URL
 
     // Analyze the image with AI
     let aiAnalysis = null;
@@ -158,8 +185,6 @@ Provide a comprehensive analysis that can be used to match this image with appro
 
     if (dbError) {
       console.error("Database error:", dbError);
-      // If database save fails, delete the uploaded file
-      await fileUpload.delete();
       return NextResponse.json(
         { error: "Failed to save image data" },
         { status: 500 }

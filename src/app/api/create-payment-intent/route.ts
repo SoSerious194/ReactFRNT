@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
           email: extractedData.email,
           full_name: extractedData.fullName,
           coach: form.coach_id,
-          role: "Client",
+          role: "client",
           selected_plan_name: selectedPlan.name,
           selected_plan_price: selectedPlan.price,
           plan_active: true,

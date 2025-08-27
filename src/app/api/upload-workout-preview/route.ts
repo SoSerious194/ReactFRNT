@@ -1,13 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Storage } from "@google-cloud/storage";
-
-// Initialize Google Cloud Storage
-const storage = new Storage({
-  projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-  credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS || "{}"),
-});
-
-const bucketName = "mob_workout_images";
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,19 +20,54 @@ export async function POST(request: NextRequest) {
     // Generate unique filename
     const filename = `workout-preview-${workoutId}-${Date.now()}.png`;
 
-    // Upload to Google Cloud Storage
-    const bucket = storage.bucket(bucketName);
-    const fileObj = bucket.file(filename);
+    // Upload to Cloudflare Images
+    const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN;
 
-    await fileObj.save(buffer, {
-      metadata: {
-        contentType: "image/png",
-      },
-    });
+    if (!cloudflareAccountId || !cloudflareApiToken) {
+      return NextResponse.json(
+        { error: "Cloudflare configuration missing" },
+        { status: 500 }
+      );
+    }
 
-    // With uniform bucket-level access, files are automatically public if bucket is configured as public
-    // Get the public URL
-    const publicUrl = `https://storage.googleapis.com/${bucketName}/${filename}`;
+    // Create form data for Cloudflare upload
+    const cloudflareFormData = new FormData();
+    cloudflareFormData.append(
+      "file",
+      new Blob([buffer], { type: "image/png" }),
+      filename
+    );
+    cloudflareFormData.append(
+      "metadata",
+      JSON.stringify({
+        workout_id: workoutId,
+        upload_type: "workout_preview",
+      })
+    );
+
+    const cloudflareResponse = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/images/v1`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${cloudflareApiToken}`,
+        },
+        body: cloudflareFormData,
+      }
+    );
+
+    if (!cloudflareResponse.ok) {
+      const errorData = await cloudflareResponse.json();
+      console.error("Cloudflare upload error:", errorData);
+      return NextResponse.json(
+        { error: "Failed to upload image to Cloudflare" },
+        { status: 500 }
+      );
+    }
+
+    const cloudflareResult = await cloudflareResponse.json();
+    const publicUrl = cloudflareResult.result.variants[0]; // Get the first variant URL
 
     return NextResponse.json({
       success: true,
