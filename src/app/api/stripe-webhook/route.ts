@@ -99,6 +99,10 @@ export async function POST(request: NextRequest) {
           fullName,
           selectedPlan,
           planPrice,
+          user_id, // Mobile subscription metadata
+          plan_name, // Mobile subscription metadata
+          plan_price, // Mobile subscription metadata
+          is_upgrade, // Mobile subscription metadata
         } = session.metadata || {};
 
         console.log("Extracted metadata:", {
@@ -107,60 +111,74 @@ export async function POST(request: NextRequest) {
           email: email ? "present" : "missing",
           password: password ? "present" : "missing",
           fullName: fullName ? "present" : "missing",
+          user_id,
+          plan_name,
+          plan_price,
+          is_upgrade,
         });
 
-        if (!coachId || !email || !password) {
-          console.error("Missing required metadata for user creation");
+        // Determine if this is a mobile subscription or onboarding signup
+        const isMobileSubscription = user_id && plan_name && plan_price;
+        const isOnboardingSignup = coachId && email && password;
+
+        if (!isMobileSubscription && !isOnboardingSignup) {
+          console.error(
+            "Invalid metadata - neither mobile subscription nor onboarding signup"
+          );
           console.error("Missing metadata details:", {
             coachId: coachId ? "present" : "missing",
             email: email ? "present" : "missing",
             password: password ? "present" : "missing",
-            fullName: fullName ? "present" : "missing",
-            formId: formId ? "present" : "missing",
+            user_id: user_id ? "present" : "missing",
+            plan_name: plan_name ? "present" : "missing",
+            plan_price: plan_price ? "present" : "missing",
           });
           return NextResponse.json(
             {
-              error: "Missing required metadata",
-              details: {
-                coachId: !!coachId,
-                email: !!email,
-                password: !!password,
-                fullName: !!fullName,
-                formId: !!formId,
-              },
+              error: "Invalid metadata",
+              details:
+                "Neither mobile subscription nor onboarding signup metadata found",
             },
             { status: 400 }
           );
         }
 
-        // FIRST: Save form submission with "converted" status (payment succeeded)
-        console.log("Saving form submission with 'converted' status...");
-        const { error: submissionError } = await supabase
-          .from("signup_form_submissions")
-          .insert({
-            form_id: formId,
-            coach_id: coachId,
-            form_data: { email, fullName },
-            submitted_at: new Date().toISOString(),
-            status: "converted", // Payment succeeded
-            stripe_session_id: session.id,
-            stripe_customer_id: session.customer as string,
-            stripe_subscription_id: session.subscription as string,
-          });
+        if (isOnboardingSignup) {
+          // Handle onboarding signup - save form submission
+          console.log("Processing onboarding signup...");
 
-        if (submissionError) {
-          console.error("Error saving form submission:", submissionError);
-          console.error("Submission error details:", {
-            message: submissionError.message,
-            code: submissionError.code,
-            details: submissionError.details,
-            hint: submissionError.hint,
-          });
-          // Continue with user creation even if submission save fails
+          // FIRST: Save form submission with "converted" status (payment succeeded)
+          console.log("Saving form submission with 'converted' status...");
+          const { error: submissionError } = await supabase
+            .from("signup_form_submissions")
+            .insert({
+              form_id: formId,
+              coach_id: coachId,
+              form_data: { email, fullName },
+              submitted_at: new Date().toISOString(),
+              status: "converted", // Payment succeeded
+              stripe_session_id: session.id,
+              stripe_customer_id: session.customer as string,
+              stripe_subscription_id: session.subscription as string,
+            });
+
+          if (submissionError) {
+            console.error("Error saving form submission:", submissionError);
+            console.error("Submission error details:", {
+              message: submissionError.message,
+              code: submissionError.code,
+              details: submissionError.details,
+              hint: submissionError.hint,
+            });
+            // Continue with user creation even if submission save fails
+          } else {
+            console.log(
+              "Form submission saved successfully with 'converted' status"
+            );
+          }
         } else {
-          console.log(
-            "Form submission saved successfully with 'converted' status"
-          );
+          // Handle mobile subscription
+          console.log("Processing mobile subscription...");
         }
 
         // Check if user already exists (in case webhook is called multiple times)
@@ -194,6 +212,37 @@ export async function POST(request: NextRequest) {
             }
           } else {
             console.log("User already has role and coach, skipping update");
+          }
+
+          return NextResponse.json({ received: true });
+        }
+
+        // Handle mobile subscription if this is not an onboarding signup
+        if (isMobileSubscription && user_id) {
+          console.log("Processing mobile subscription for existing user...");
+
+          // Update the existing user's subscription details
+          const { error: mobileUpdateError } = await supabase
+            .from("users")
+            .update({
+              selected_plan_name: plan_name,
+              selected_plan_price: parseFloat(plan_price),
+              plan_active: true,
+              stripe_customer_id: session.customer as string,
+              stripe_subscription_id: session.subscription as string,
+              subscription_status: "active",
+            })
+            .eq("id", user_id);
+
+          if (mobileUpdateError) {
+            console.error(
+              "Error updating mobile subscription:",
+              mobileUpdateError
+            );
+          } else {
+            console.log(
+              `Successfully updated mobile subscription for user ${user_id}`
+            );
           }
 
           return NextResponse.json({ received: true });
@@ -463,8 +512,11 @@ export async function POST(request: NextRequest) {
 
         // Update plan details if available in metadata
         if (updatedSubscription.metadata.plan_name) {
-          updateData.selected_plan_name = updatedSubscription.metadata.plan_name;
-          updateData.selected_plan_price = parseFloat(updatedSubscription.metadata.plan_price || "0");
+          updateData.selected_plan_name =
+            updatedSubscription.metadata.plan_name;
+          updateData.selected_plan_price = parseFloat(
+            updatedSubscription.metadata.plan_price || "0"
+          );
         }
 
         await supabase
