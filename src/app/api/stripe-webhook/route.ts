@@ -451,6 +451,26 @@ export async function POST(request: NextRequest) {
         const updatedSubscription = event.data.object as Stripe.Subscription;
         console.log("=== SUBSCRIPTION UPDATED ===");
         console.log("Subscription ID:", updatedSubscription.id);
+        console.log("Customer ID:", updatedSubscription.customer);
+        console.log("Status:", updatedSubscription.status);
+        console.log("Metadata:", updatedSubscription.metadata);
+
+        // Update user's subscription status
+        const updateData: any = {
+          subscription_status: updatedSubscription.status,
+          plan_active: updatedSubscription.status === "active",
+        };
+
+        // Update plan details if available in metadata
+        if (updatedSubscription.metadata.plan_name) {
+          updateData.selected_plan_name = updatedSubscription.metadata.plan_name;
+          updateData.selected_plan_price = parseFloat(updatedSubscription.metadata.plan_price || "0");
+        }
+
+        await supabase
+          .from("users")
+          .update(updateData)
+          .eq("stripe_subscription_id", updatedSubscription.id);
         console.log("Status:", updatedSubscription.status);
 
         // Update user's subscription status

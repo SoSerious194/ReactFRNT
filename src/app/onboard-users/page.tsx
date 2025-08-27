@@ -12,7 +12,6 @@ import {
   Edit,
   Trash2,
   ExternalLink,
-  Calendar,
   DollarSign,
 } from "lucide-react";
 import Link from "next/link";
