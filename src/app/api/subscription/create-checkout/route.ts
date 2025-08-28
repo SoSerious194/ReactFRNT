@@ -88,8 +88,17 @@ export async function POST(request: NextRequest) {
     const isDowngrade =
       isUpgrade && currentPlanPrice > 0 && planPrice < currentPlanPrice;
 
+    console.log("Plan comparison:", {
+      currentPlanPrice,
+      newPlanPrice: planPrice,
+      isUpgrade,
+      isActuallyUpgrade,
+      isDowngrade,
+      priceDifference: planPrice - currentPlanPrice,
+    });
+
     // For upgrades, check if user already has an active subscription
-    // Only block upgrades if user has an active subscription that's not free
+    // Allow upgrades to more expensive plans, but handle them differently
     if (
       isUpgrade &&
       userData.stripe_subscription_id &&
@@ -98,12 +107,23 @@ export async function POST(request: NextRequest) {
       userData.subscription_status === "active" &&
       userData.plan_active === true
     ) {
-      return NextResponse.json(
-        {
-          error:
-            "You already have an active paid subscription. Please cancel your current subscription first.",
-        },
-        { status: 400 }
+      if (planPrice <= userData.selected_plan_price) {
+        console.log("Blocking upgrade - new plan is not more expensive");
+        return NextResponse.json(
+          {
+            error:
+              "You can only upgrade to a more expensive plan. Please select a higher-priced plan.",
+          },
+          { status: 400 }
+        );
+      }
+
+      // This is a valid upgrade - we'll handle it as an upgrade
+      console.log(
+        "Processing valid upgrade from",
+        userData.selected_plan_price,
+        "to",
+        planPrice
       );
     }
 
@@ -116,6 +136,18 @@ export async function POST(request: NextRequest) {
     } else if (currentPlanPrice === 0 && planPrice > 0) {
       subscriptionMode = "upgrade_from_free";
     }
+
+    console.log("Subscription mode:", subscriptionMode);
+    console.log("Processing subscription:", {
+      mode: subscriptionMode,
+      currentPlan: userData.selected_plan_name,
+      currentPrice: userData.selected_plan_price,
+      newPlan: planName,
+      newPrice: planPrice,
+      hasActiveSubscription:
+        userData.stripe_subscription_id &&
+        userData.subscription_status === "active",
+    });
 
     // Create or get Stripe customer
     let customerId = userData.stripe_customer_id;
@@ -136,6 +168,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Create checkout session
+    console.log("Creating Stripe checkout session...");
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
@@ -173,6 +207,9 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    console.log("Stripe checkout session created:", session.id);
+    console.log("Returning checkout URL:", session.url);
 
     return NextResponse.json({
       checkoutUrl: session.url,
